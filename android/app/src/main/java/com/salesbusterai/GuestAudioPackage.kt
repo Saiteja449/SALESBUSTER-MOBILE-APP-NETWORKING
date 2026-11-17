@@ -1,4 +1,4 @@
-package com.salesbustermobileapp
+package com.salesbusterai
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

@@ -12,7 +12,9 @@ import GuestHomeScreen from '../screens/guest/GuestHomeScreen';
 import NewEventScreen from '../screens/guest/NewEventScreen';
 import LeadCaptureSuccessScreen from '../screens/guest/LeadCaptureSuccessScreen';
 import EventContactsScreen from '../screens/guest/EventContactsScreen';
+import GuestAccountScreen from '../screens/guest/GuestAccountScreen';
 import PermissionSetupScreen from '../screens/system/PermissionSetupScreen';
+import SpeechRegistrationModal from '../components/auth/SpeechRegistrationModal';
 import { getPermissionSetupKey } from '../config/rolePermissions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -106,6 +108,7 @@ const GuestAppNavigator = () => {
               <Stack.Screen name="EditEvent" component={NewEventScreen} />
               <Stack.Screen name="LeadCaptureSuccess" component={LeadCaptureSuccessScreen} />
               <Stack.Screen name="EventContacts" component={EventContactsScreen} />
+              <Stack.Screen name="GuestAccount" component={GuestAccountScreen} />
             </>
           ) : (
             <>
@@ -145,6 +148,15 @@ const GuestAppNavigator = () => {
           )}
         </Stack.Navigator>
       </NavigationContainer>
+      {isAuthenticated &&
+        isGuest &&
+        user?.isProfileComplete !== true &&
+        (!user?.name || user.name.trim().length === 0 || user.name.startsWith('Guest_')) && (
+          <SpeechRegistrationModal
+            visible={true}
+            onComplete={() => {}}
+          />
+        )}
     </View>
   );
 };

@@ -187,6 +187,13 @@ export const requestPermissionById = async (permissionId, currentStatus) => {
         }
         const res = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+          {
+            title: 'Notification Alerts',
+            message:
+              'SalesBuster sends notifications to keep you informed of scheduled attendee follow-ups, cloud lead synchronization, and important event alerts.',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Not Now',
+          },
         );
         return mapAndroidResult(res);
       }
@@ -194,6 +201,13 @@ export const requestPermissionById = async (permissionId, currentStatus) => {
       case 'microphone': {
         const res = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          {
+            title: 'Microphone Access for Voice Notes',
+            message:
+              'SalesBuster needs microphone access to record your voice notes and extract attendee contact details using AI speech analysis. Audio is only recorded while you actively open or use voice capture.',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Not Now',
+          },
         );
         return mapAndroidResult(res);
       }
@@ -234,6 +248,13 @@ export const requestPermissionById = async (permissionId, currentStatus) => {
       case 'camera': {
         const res = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Camera Access for Attendee Capture',
+            message:
+              'SalesBuster needs camera access so you can take attendee selfies and photograph business cards to attach to your event leads. Photos are stored securely in your workspace and never shared without your permission.',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Not Now',
+          },
         );
         return mapAndroidResult(res);
       }

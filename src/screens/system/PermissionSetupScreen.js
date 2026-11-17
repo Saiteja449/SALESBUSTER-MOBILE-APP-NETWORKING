@@ -148,6 +148,7 @@ const PermissionSetupScreen = ({
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [requestingId, setRequestingId] = useState(null);
   const [isContinuing, setIsContinuing] = useState(false);
+  const [isAllowingAll, setIsAllowingAll] = useState(false);
 
   const contentOpacity = useRef(new Animated.Value(0)).current;
   const contentTranslateY = useRef(new Animated.Value(12)).current;
@@ -270,6 +271,33 @@ const PermissionSetupScreen = ({
     }
   };
 
+  const handleAllowAll = async () => {
+    if (isAllowingAll || isContinuing) return;
+    setIsAllowingAll(true);
+    try {
+      const pendingList = permissions.filter(
+        (p) =>
+          statuses[p.id] !== PERMISSION_STATUS.GRANTED &&
+          statuses[p.id] !== PERMISSION_STATUS.UNAVAILABLE
+      );
+
+      for (const item of pendingList) {
+        const current = statuses[item.id] || PERMISSION_STATUS.DENIED;
+        if (current === PERMISSION_STATUS.BLOCKED) {
+          continue;
+        }
+        setRequestingId(item.id);
+        const result = await requestPermissionById(item.id, current);
+        setHasAttemptedMap((prev) => ({ ...prev, [item.id]: true }));
+        setStatuses((prev) => ({ ...prev, [item.id]: result }));
+      }
+    } finally {
+      setRequestingId(null);
+      setIsAllowingAll(false);
+      await refreshAllStatuses();
+    }
+  };
+
   const enabledCount = permissions.filter(
     (p) => statuses[p.id] === PERMISSION_STATUS.GRANTED,
   ).length;
@@ -280,6 +308,14 @@ const PermissionSetupScreen = ({
   const missingRequiredCount = permissions.filter(
     (p) => p.required && statuses[p.id] !== PERMISSION_STATUS.GRANTED,
   ).length;
+
+  const allPermissionsGranted =
+    totalCount > 0 &&
+    permissions.every(
+      (p) =>
+        statuses[p.id] === PERMISSION_STATUS.GRANTED ||
+        statuses[p.id] === PERMISSION_STATUS.UNAVAILABLE
+    );
 
   return (
     <View style={styles.root}>
@@ -382,6 +418,19 @@ const PermissionSetupScreen = ({
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
+            {/* Prominent Play Store Transparency & Privacy Notice */}
+            <View style={styles.privacyNoticeCard}>
+              <View style={styles.privacyNoticeHeader}>
+                <ShieldCheckIcon size={18} color="#34D399" />
+                <Text style={styles.privacyNoticeTitle}>
+                  Play Store Privacy & Data Transparency
+                </Text>
+              </View>
+              <Text style={styles.privacyNoticeDesc}>
+                SalesBuster accesses device permissions strictly to power on-demand event lead capture requested by you. Voice and camera are only active while you actively record or take a photo. Your data stays securely in your private workspace and is never sold or shared with third-party advertisers.
+              </Text>
+            </View>
+
             {permissions.map((item) => {
               const status = statuses[item.id] || PERMISSION_STATUS.DENIED;
               const isGranted = status === PERMISSION_STATUS.GRANTED;
@@ -455,6 +504,9 @@ const PermissionSetupScreen = ({
                           </Text>
                         </View>
                       </View>
+                      {item.usageTag ? (
+                        <Text style={styles.cardUsageTag}>• {item.usageTag}</Text>
+                      ) : null}
                     </View>
 
                     <View
@@ -541,38 +593,69 @@ const PermissionSetupScreen = ({
             </Text>
           )}
 
-          <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
-            <TouchableOpacity
-              onPress={handleContinue}
-              onPressIn={() =>
-                Animated.spring(buttonScale, {
-                  toValue: 0.975,
-                  useNativeDriver: true,
-                }).start()
-              }
-              onPressOut={() =>
-                Animated.spring(buttonScale, {
-                  toValue: 1,
-                  friction: 6,
-                  useNativeDriver: true,
-                }).start()
-              }
-              disabled={isContinuing}
-              activeOpacity={0.85}
-              style={[
-                styles.continueBtn,
-                isContinuing && styles.continueBtnDisabled,
-              ]}
-            >
-              {isContinuing ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.continueBtnText}>
-                  Continue to SalesBuster
-                </Text>
-              )}
-            </TouchableOpacity>
-          </Animated.View>
+          {allPermissionsGranted ? (
+            <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+              <TouchableOpacity
+                onPress={handleContinue}
+                onPressIn={() =>
+                  Animated.spring(buttonScale, {
+                    toValue: 0.975,
+                    useNativeDriver: true,
+                  }).start()
+                }
+                onPressOut={() =>
+                  Animated.spring(buttonScale, {
+                    toValue: 1,
+                    friction: 6,
+                    useNativeDriver: true,
+                  }).start()
+                }
+                disabled={isContinuing}
+                activeOpacity={0.85}
+                style={[
+                  styles.continueBtn,
+                  isContinuing && styles.continueBtnDisabled,
+                ]}
+              >
+                {isContinuing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.continueBtnText}>
+                    Continue to SalesBuster
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+          ) : (
+            <View style={styles.dualButtonRow}>
+              {/* Skip for now */}
+              <TouchableOpacity
+                onPress={handleContinue}
+                disabled={isContinuing || isAllowingAll}
+                activeOpacity={0.8}
+                style={styles.skipBtn}
+              >
+                <Text style={styles.skipBtnText}>Skip for now</Text>
+              </TouchableOpacity>
+
+              {/* Allow all */}
+              <TouchableOpacity
+                onPress={handleAllowAll}
+                disabled={isContinuing || isAllowingAll}
+                activeOpacity={0.85}
+                style={[
+                  styles.allowAllBtn,
+                  isAllowingAll && styles.allowAllBtnDisabled,
+                ]}
+              >
+                {isAllowingAll ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.allowAllBtnText}>Allow all</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
 
           <Text style={styles.footerHint}>
             You can update permissions anytime in your device settings.
@@ -714,6 +797,31 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 12,
   },
+  privacyNoticeCard: {
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.28)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 4,
+  },
+  privacyNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  privacyNoticeTitle: {
+    fontSize: 13,
+    fontFamily: Fonts.family.bold,
+    color: '#34D399',
+  },
+  privacyNoticeDesc: {
+    fontSize: 12,
+    fontFamily: Fonts.family.regular,
+    color: '#CBD5E1',
+    lineHeight: 17,
+  },
   card: {
     backgroundColor: PALETTE.cardBg,
     borderWidth: 1,
@@ -762,6 +870,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: Fonts.family.bold,
     color: PALETTE.textPrimary,
+  },
+  cardUsageTag: {
+    fontSize: 11,
+    fontFamily: Fonts.family.medium,
+    color: PALETTE.orangeSoft,
+    marginTop: 2,
   },
   reqBadge: {
     borderRadius: 6,
@@ -876,6 +990,50 @@ const styles = StyleSheet.create({
   },
   continueBtnText: {
     fontSize: 15.5,
+    fontFamily: Fonts.family.bold,
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  dualButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  skipBtn: {
+    flex: 1,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: '#1C1A36',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  skipBtnText: {
+    fontSize: 14.5,
+    fontFamily: Fonts.family.bold,
+    color: '#94A3B8',
+  },
+  allowAllBtn: {
+    flex: 1.3,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: '#7C3AED',
+    borderWidth: 1,
+    borderColor: 'rgba(221, 214, 254, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#2E087A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+  },
+  allowAllBtnDisabled: {
+    opacity: 0.72,
+  },
+  allowAllBtnText: {
+    fontSize: 15,
     fontFamily: Fonts.family.bold,
     color: '#FFFFFF',
     letterSpacing: 0.3,

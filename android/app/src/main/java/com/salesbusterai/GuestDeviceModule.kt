@@ -1,4 +1,4 @@
-package com.salesbustermobileapp
+package com.salesbusterai
 
 import android.app.Activity
 import android.content.Intent

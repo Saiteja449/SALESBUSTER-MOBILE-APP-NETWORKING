@@ -31,7 +31,12 @@ const PERMISSION_CATALOG = {
     icon: 'camera',
     isSpecialSetting: false,
     required: false,
-    description: 'Capture business cards and attendee selfies during event leads capture.',
+    usageTag: 'Used On-Demand Only',
+    description:
+      'Used strictly to photograph attendee business cards and take lead selfies during events. Never accessed in the background.',
+    rationaleTitle: 'Camera Access for Attendee Capture',
+    rationaleMessage:
+      'SalesBuster needs camera access so you can take attendee selfies and photograph business cards to attach to your event leads. Photos are stored securely in your workspace and never shared without your permission.',
   },
   microphone: {
     id: 'microphone',
@@ -39,7 +44,12 @@ const PERMISSION_CATALOG = {
     icon: 'microphone',
     isSpecialSetting: false,
     required: false,
-    description: 'Power live AI voice capture and attendee conversation transcription.',
+    usageTag: 'Active Only While Recording',
+    description:
+      'Powers on-demand AI voice capture to transcribe conversation notes and extract contact details when you tap the mic.',
+    rationaleTitle: 'Microphone Access for Voice Notes',
+    rationaleMessage:
+      'SalesBuster needs microphone access to record your voice notes and extract attendee contact details using AI speech analysis. Audio is only recorded while you actively open or use voice capture.',
   },
   notifications: {
     id: 'notifications',
@@ -47,7 +57,12 @@ const PERMISSION_CATALOG = {
     icon: 'notifications',
     isSpecialSetting: false,
     required: false,
-    description: 'Receive event reminders, lead sync notifications, and follow-up updates.',
+    usageTag: 'Follow-ups & Sync Status',
+    description:
+      'Delivers timely follow-up reminders, attendee lead sync confirmations, and event updates directly to your screen.',
+    rationaleTitle: 'Notification Alerts',
+    rationaleMessage:
+      'SalesBuster sends notifications to keep you informed of scheduled attendee follow-ups, cloud lead synchronization, and important event alerts.',
   },
   contacts: {
     id: 'contacts',
@@ -55,7 +70,12 @@ const PERMISSION_CATALOG = {
     icon: 'contacts',
     isSpecialSetting: false,
     required: false,
-    description: 'Select or save event contacts when you use contact capture features.',
+    usageTag: 'Local Device Address Book',
+    description:
+      'Enables one-tap saving of verified event leads into your phone contacts book and prevents duplicate attendee entries.',
+    rationaleTitle: 'Contacts Access for Lead Saving',
+    rationaleMessage:
+      'SalesBuster requests access to contacts so you can save captured event leads directly into your phone address book with a single tap.',
   },
 };
 

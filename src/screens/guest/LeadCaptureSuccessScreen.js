@@ -21,6 +21,7 @@ import {
   CheckIcon,
   ChevronRightIcon,
   XIcon,
+  PlayIcon,
 } from '../../icons/Icons';
 import { eventService } from '../../services/api/eventService';
 import { getFullMediaUrl } from '../../utils/constants';
@@ -133,6 +134,13 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
       return getFullMediaUrl(imgUrl);
     }
     return imgUrl;
+  };
+
+  const isServiceVideo = (item) => {
+    if (!item) return false;
+    if (item.mediaType === 'video') return true;
+    const url = item.mediaUrl || item.imageUrl || '';
+    return /\.(mp4|webm|mov|mkv|avi|m3u8)(\?.*)?$/i.test(url);
   };
 
   // Fetch dynamic showcase services from Super Admin
@@ -294,7 +302,8 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
           {/* 2-Column Grid */}
           <View style={styles.gridContainer}>
             {servicesList.map((item) => {
-              const imageSourceUri = resolveServiceImageUri(item.imageUrl);
+              const imageSourceUri = resolveServiceImageUri(item.mediaUrl || item.imageUrl);
+              const isVideo = isServiceVideo(item);
               return (
                 <TouchableOpacity
                   key={item.id || item._id || item.serviceKey}
@@ -302,7 +311,7 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
                   onPress={() => handleServicePress(item)}
                   activeOpacity={0.82}
                 >
-                  {/* Clean Image Banner */}
+                  {/* Clean Image / Video Banner */}
                   <View style={[styles.imageWrap, { backgroundColor: item.fallbackBg || '#1A1838' }]}>
                     {imageSourceUri ? (
                       <Image
@@ -311,6 +320,11 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
                         resizeMode="cover"
                       />
                     ) : null}
+                    {isVideo && (
+                      <View style={styles.videoBadgeOverlay}>
+                        <PlayIcon size={12} color="#FFFFFF" />
+                      </View>
+                    )}
                   </View>
 
                   {/* Card Title */}
@@ -320,8 +334,15 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
 
                   {/* Bottom Row: Pill Tag + Subtle Chevron */}
                   <View style={styles.cardFooter}>
-                    <View style={styles.tagPill}>
-                      <Text style={styles.tagText}>{item.tag || 'Analytics'}</Text>
+                    <View style={styles.tagRow}>
+                      <View style={styles.tagPill}>
+                        <Text style={styles.tagText}>{item.tag || 'Analytics'}</Text>
+                      </View>
+                      {isVideo && (
+                        <View style={styles.videoPill}>
+                          <Text style={styles.videoPillText}>Video</Text>
+                        </View>
+                      )}
                     </View>
                     <ChevronRightIcon size={14} color="#8F90A6" />
                   </View>
@@ -356,8 +377,16 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
             <View style={styles.sheetHeaderRow}>
               <View style={styles.sheetTitleCol}>
                 <Text style={styles.sheetTitle}>{selectedService?.title}</Text>
-                <View style={styles.sheetTagPill}>
-                  <Text style={styles.sheetTagText}>{selectedService?.tag}</Text>
+                <View style={styles.tagRow}>
+                  <View style={styles.sheetTagPill}>
+                    <Text style={styles.sheetTagText}>{selectedService?.tag}</Text>
+                  </View>
+                  {isServiceVideo(selectedService) && (
+                    <View style={styles.videoPill}>
+                      <PlayIcon size={10} color="#A78BFA" />
+                      <Text style={styles.videoPillText}>Video</Text>
+                    </View>
+                  )}
                 </View>
               </View>
 
@@ -369,6 +398,45 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
                 <XIcon size={14} color="#CBD5E1" />
               </TouchableOpacity>
             </View>
+
+            {/* Video Banner if item is video */}
+            {isServiceVideo(selectedService) && (
+              <TouchableOpacity
+                style={styles.videoModalBanner}
+                activeOpacity={0.85}
+                onPress={() => {
+                  const url = resolveServiceImageUri(
+                    selectedService?.mediaUrl || selectedService?.imageUrl
+                  );
+                  if (url) {
+                    Linking.openURL(url).catch((err) => {
+                      Alert.alert('Cannot open video', err.message);
+                    });
+                  }
+                }}
+              >
+                {selectedService?.imageUrl ? (
+                  <Image
+                    source={{ uri: resolveServiceImageUri(selectedService.imageUrl) }}
+                    style={styles.videoModalBannerImg}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.videoModalBannerImg,
+                      { backgroundColor: selectedService?.fallbackBg || '#1A1838' },
+                    ]}
+                  />
+                )}
+                <View style={styles.videoModalOverlay}>
+                  <View style={styles.videoPlayCircle}>
+                    <PlayIcon size={20} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.videoPlayText}>Watch Video Preview</Text>
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* Description */}
             <Text style={styles.sheetDescription}>{selectedService?.description}</Text>
@@ -530,6 +598,82 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  tagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  videoBadgeOverlay: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  videoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(124, 58, 237, 0.25)',
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.4)',
+    gap: 3,
+  },
+  videoPillText: {
+    color: '#DDD6FE',
+    fontSize: 10,
+    fontFamily: Fonts.family.bold,
+  },
+  videoModalBanner: {
+    width: '100%',
+    height: 140,
+    borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    marginTop: 12,
+    marginBottom: 6,
+    backgroundColor: '#0F0E1E',
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.3)',
+  },
+  videoModalBannerImg: {
+    width: '100%',
+    height: '100%',
+  },
+  videoModalOverlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  videoPlayCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#7C3AED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  videoPlayText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: Fonts.family.bold,
   },
   tagPill: {
     backgroundColor: '#231D3B',

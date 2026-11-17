@@ -174,6 +174,11 @@ export const AuthProvider = ({ children }) => {
             parsedUser.token = savedToken;
           }
           const isGuest = parsedUser.accountType === 'guest' || parsedUser.organization?.accountType === 'guest';
+          const isProfileComplete = Boolean(
+            parsedUser.isProfileComplete ||
+            (parsedUser.name && parsedUser.name.trim().length > 0 && !parsedUser.name.startsWith('Guest_'))
+          );
+          parsedUser.isProfileComplete = isProfileComplete;
           const isManager = Boolean(
             parsedUser.isManager ||
             parsedUser.rawRole === 'sales manager' ||
@@ -364,6 +369,128 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const sendOtp = useCallback(async (phone) => {
+    try {
+      const response = await axios.post(API_ENDPOINTS.AUTH.SEND_OTP, { phone });
+      const data = response.data;
+      return {
+        success: data.success ?? true,
+        message: data.message || 'OTP sent successfully',
+        debugOtp: data.debugOtp,
+      };
+    } catch (error) {
+      console.error('Send OTP error:', error);
+      const errData = error.response?.data;
+      const message = errData?.message || 'Failed to send OTP. Please try again.';
+      return { success: false, message };
+    }
+  }, []);
+
+  const verifyOtp = useCallback(async (phone, otp) => {
+    try {
+      const response = await axios.post(API_ENDPOINTS.AUTH.VERIFY_OTP, { phone, otp });
+      const data = response.data;
+
+      if (!data.success) {
+        return { success: false, message: data.message || 'OTP verification failed' };
+      }
+
+      const isProfileComplete = Boolean(
+        data.isProfileComplete ||
+        (data.name && data.name.trim().length > 0 && !data.name.startsWith('Guest_') && data.companyName && !data.companyName.includes("'s Workspace"))
+      );
+      const userWithToken = {
+        id: data._id || data.id,
+        _id: data._id || data.id,
+        name: isProfileComplete ? (data.name || '') : '',
+        phone: data.phone || phone,
+        email: data.email || '',
+        companyName: isProfileComplete ? (data.companyName || '') : '',
+        role: isProfileComplete ? (data.role || '') : '',
+        city: isProfileComplete ? (data.city || '') : '',
+        accountType: 'guest',
+        isOrgOwner: true,
+        isManager: true,
+        isProfileComplete,
+        token: data.token,
+        tenantDbName: data.tenantDbName,
+        organization: data.organization,
+        services: (data.organization?.services || []).map(s => (typeof s === 'string' ? s : s.name)),
+        avatar: data.name ? data.name.substring(0, 2).toUpperCase() : 'G',
+      };
+
+      setUser(userWithToken);
+      setIsAuthenticated(true);
+      await AsyncStorage.setItem('mysalespilot_token', data.token);
+      await AsyncStorage.setItem('mysalespilot_session_user', JSON.stringify(userWithToken));
+      await setPostCallPopupEnabled(false);
+      if (data.token) {
+        await saveAuthToken(data.token);
+      }
+      if (data.phone) {
+        await saveUserPhoneNumber(data.phone);
+      }
+
+      setIsSuspended(false);
+      setSuspensionMessage('');
+      return {
+        success: true,
+        user: userWithToken,
+        isProfileComplete,
+      };
+    } catch (error) {
+      console.error('Verify OTP error:', error);
+      const errData = error.response?.data;
+      const message = errData?.message || 'Invalid or expired OTP. Please try again.';
+      return { success: false, message };
+    }
+  }, []);
+
+  const completeProfile = useCallback(async ({ name, companyName, role, city, email }) => {
+    try {
+      const savedToken = (await AsyncStorage.getItem('mysalespilot_token')) || user?.token;
+      const response = await axios.post(
+        API_ENDPOINTS.AUTH.COMPLETE_PROFILE,
+        { name, companyName, role, city, email },
+        {
+          headers: {
+            Authorization: `Bearer ${savedToken}`,
+          },
+        }
+      );
+      const data = response.data;
+
+      if (!data.success) {
+        return { success: false, message: data.message || 'Profile completion failed' };
+      }
+
+      const updatedUser = {
+        ...user,
+        name: data.name || name,
+        companyName: data.companyName || companyName,
+        role: data.role || role || user?.role,
+        city: data.city || city || user?.city,
+        email: data.email || email || user?.email || '',
+        isProfileComplete: true,
+        organization: data.organization || user?.organization,
+        avatar: (data.name || name).substring(0, 2).toUpperCase(),
+      };
+
+      setUser(updatedUser);
+      await AsyncStorage.setItem('mysalespilot_session_user', JSON.stringify(updatedUser));
+      if (data.token) {
+        await AsyncStorage.setItem('mysalespilot_token', data.token);
+      }
+
+      return { success: true, user: updatedUser };
+    } catch (error) {
+      console.error('Complete Profile error:', error);
+      const errData = error.response?.data;
+      const message = errData?.message || 'Failed to complete profile registration.';
+      return { success: false, message };
+    }
+  }, [user]);
+
   const updateProfile = useCallback((updates) => {
     setUser((prev) => ({ ...prev, ...updates }));
   }, []);
@@ -388,6 +515,9 @@ export const AuthProvider = ({ children }) => {
       setIsSuspended,
       login,
       registerGuest,
+      sendOtp,
+      verifyOtp,
+      completeProfile,
       logout,
       updateProfile,
     }),
@@ -402,6 +532,9 @@ export const AuthProvider = ({ children }) => {
       checkOrganizationStatus,
       login,
       registerGuest,
+      sendOtp,
+      verifyOtp,
+      completeProfile,
       logout,
       updateProfile,
     ]

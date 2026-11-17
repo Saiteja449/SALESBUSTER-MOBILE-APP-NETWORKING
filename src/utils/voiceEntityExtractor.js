@@ -867,6 +867,38 @@ export function extractDesignation(text = '') {
 }
 
 /**
+ * Extracts city/location from speech transcript matching GEOGRAPHIC_LOCATIONS.
+ */
+export function extractCity(text = '') {
+  if (!text || typeof text !== 'string') return '';
+  const lower = text.toLowerCase();
+
+  // 1. Try cue-based matches first ("from Mumbai", "in Delhi", "based in Pune", "city is Hyderabad")
+  for (const loc of GEOGRAPHIC_LOCATIONS) {
+    const cueRegex = new RegExp(`(?:from|in|at|based in|living in|city(?:\\s+is)?|location(?:\\s+is)?)\\s+${loc}\\b`, 'i');
+    if (cueRegex.test(lower)) {
+      return loc
+        .split(' ')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+    }
+  }
+
+  // 2. Fallback to direct word match
+  for (const loc of GEOGRAPHIC_LOCATIONS) {
+    const wordRegex = new RegExp(`\\b${loc}\\b`, 'i');
+    if (wordRegex.test(lower)) {
+      return loc
+        .split(' ')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+    }
+  }
+
+  return '';
+}
+
+/**
  * Extracts an in-depth conversation discussion summary from spoken speech.
  * Filters out greetings, pure introductions, or phone number recitations.
  * Produces meaningful discussion points without hallucinating from empty conversation.

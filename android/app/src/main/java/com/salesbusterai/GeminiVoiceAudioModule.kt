@@ -1,4 +1,4 @@
-package com.salesbustermobileapp
+package com.salesbusterai
 
 import android.content.Context
 import android.media.AudioAttributes

@@ -58,9 +58,11 @@ import {
   AlertCircleIcon,
   StarIcon,
   EditIcon,
+  ShieldCheckIcon,
+  TrashIcon,
 } from '../../icons/Icons';
 import { useAuth } from '../../context/AuthContext';
-import { eventService } from '../../services/api/eventService';
+import { eventService, appendWhatsAppWatermark } from '../../services/api/eventService';
 import { useGeminiLiveVoice } from '../../hooks/useGeminiLiveVoice';
 import {
   parseRealtimeTranscript,
@@ -815,6 +817,34 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductDetailVisible, setIsProductDetailVisible] = useState(false);
   const [isAccountModalVisible, setIsAccountModalVisible] = useState(false);
+  const [productsList, setProductsList] = useState(PRODUCTS_CATALOG);
+
+  // Helper to determine if product media is video
+  const isProductVideo = (prod) => {
+    if (!prod) return false;
+    if (prod.mediaType === 'video') return true;
+    const url = prod.mediaUrl || prod.imageUrl || '';
+    return /\.(mp4|webm|mov|mkv|avi|m3u8)(\?.*)?$/i.test(url);
+  };
+
+  // Fetch dynamic showcase products from Super Admin
+  useEffect(() => {
+    let isMounted = true;
+    const fetchShowcase = async () => {
+      try {
+        const res = await eventService.getShowcaseServices(token);
+        if (isMounted && res?.success && Array.isArray(res.data) && res.data.length > 0) {
+          setProductsList(res.data);
+        }
+      } catch (err) {
+        // Fallback to PRODUCTS_CATALOG
+      }
+    };
+    fetchShowcase();
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
 
   // New Event Form State
   const [newEventName, setNewEventName] = useState('');
@@ -1568,11 +1598,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
         {
-          title: 'Microphone Permission',
+          title: 'Microphone Access for Voice Notes',
           message:
-            'SalesBuster needs microphone access for the SalesBuster AI Voice Capture.',
+            'SalesBuster needs microphone access to record your voice notes and extract attendee contact details using AI speech analysis. Audio is only recorded while you actively open or use voice capture.',
           buttonPositive: 'Allow',
-          buttonNegative: 'Deny',
+          buttonNegative: 'Not Now',
         },
       );
       if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
@@ -1680,10 +1710,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.CAMERA,
         {
-          title: 'Camera Permission',
-          message: 'SalesBuster needs camera access to take a selfie.',
+          title: 'Camera Access for Attendee Capture',
+          message:
+            'SalesBuster needs camera access so you can take attendee selfies and photograph business cards to attach to your event leads. Photos are stored securely in your workspace and never shared without your permission.',
           buttonPositive: 'Allow',
-          buttonNegative: 'Deny',
+          buttonNegative: 'Not Now',
         },
       );
       if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
@@ -2303,6 +2334,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         ? `${messageWithFileLink.trim()}\n\n${sharableFileLink}`
         : sharableFileLink;
     }
+    messageWithFileLink = appendWhatsAppWatermark(messageWithFileLink);
 
     // Media share rule:
     // Only attendee selfie is sent as media ("share the selfie as it is how it was working").
@@ -2361,7 +2393,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
 
     try {
       // Message text to send (caption when files are attached, or full text message)
-      const finalMessage = confirmMessage.trim();
+      const finalMessage = appendWhatsAppWatermark(confirmMessage.trim());
 
       // Save contact to backend
       const res = await eventService.saveEventContact(
@@ -2574,8 +2606,18 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               <Text style={styles.productsBtnText}>Our Products</Text>
             </TouchableOpacity>
 
-            {/* Right Action Group: Contacts, New Event, Info */}
+            {/* Right Action Group: Profile, Contacts, New Event, Info */}
             <View style={styles.topBarRight}>
+              {/* Profile Pill Button */}
+              <TouchableOpacity
+                style={styles.pillActionBtn}
+                onPress={() => navigation?.navigate('GuestAccount')}
+                activeOpacity={0.8}
+              >
+                <UserIcon size={12} color="#A78BFA" />
+                <Text style={styles.pillActionBtnText}>Profile</Text>
+              </TouchableOpacity>
+
               {/* Contacts Pill Button */}
               <TouchableOpacity
                 ref={guidanceContactsRef}
@@ -2936,19 +2978,28 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Profile / Account link footer */}
+          {/* View Your Profile Prominent Button */}
           <TouchableOpacity
-            style={styles.accountFooterLink}
-            onPress={() => setIsAccountModalVisible(true)}
-            activeOpacity={0.7}
+            style={styles.viewProfileBtn}
+            onPress={() => navigation?.navigate('GuestAccount')}
+            activeOpacity={0.82}
           >
-            <Text style={styles.accountFooterText}>
-              Logged in as{' '}
-              <Text style={styles.accountFooterHighlight}>
-                {user?.name || 'User'}
-              </Text>{' '}
-              • Account Options
-            </Text>
+            <View style={styles.viewProfileLeft}>
+              <View style={styles.viewProfileAvatar}>
+                <Text style={styles.viewProfileAvatarText}>
+                  {(user?.name || 'U').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.viewProfileTextCol}>
+                <Text style={styles.viewProfileTitle}>View Your Profile</Text>
+                <Text style={styles.viewProfileSubtitle}>
+                  {user?.name || 'Guest User'} • Account, Settings & Policies
+                </Text>
+              </View>
+            </View>
+            <View style={styles.viewProfileArrowWrap}>
+              <ChevronRightIcon size={18} color="#A78BFA" />
+            </View>
           </TouchableOpacity>
         </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
@@ -3292,41 +3343,60 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 16 }}
             >
-              {PRODUCTS_CATALOG.map(prod => (
-                <TouchableOpacity
-                  key={prod.id}
-                  style={styles.productListItemCard}
-                  onPress={() => handleSelectProduct(prod)}
-                  activeOpacity={0.82}
-                >
-                  {/* Left: Thumbnail Image */}
-                  <View
-                    style={[
-                      styles.productThumbWrap,
-                      { backgroundColor: prod.fallbackBg },
-                    ]}
+              {productsList.map(prod => {
+                const mediaUri = getFullMediaUrl(prod.mediaUrl || prod.imageUrl);
+                const isVideo = isProductVideo(prod);
+                return (
+                  <TouchableOpacity
+                    key={prod.id || prod._id || prod.serviceKey}
+                    style={styles.productListItemCard}
+                    onPress={() => handleSelectProduct(prod)}
+                    activeOpacity={0.82}
                   >
-                    <Image
-                      source={{ uri: prod.imageUrl }}
-                      style={styles.productThumbImage}
-                      resizeMode="cover"
-                    />
-                  </View>
-
-                  {/* Center: Title & Tag Badge */}
-                  <View style={styles.productInfoCol}>
-                    <Text style={styles.productItemTitle} numberOfLines={2}>
-                      {prod.title}
-                    </Text>
-                    <View style={styles.productTagPill}>
-                      <Text style={styles.productTagPillText}>{prod.tag}</Text>
+                    {/* Left: Thumbnail Image/Video with optional Play Badge */}
+                    <View
+                      style={[
+                        styles.productThumbWrap,
+                        { backgroundColor: prod.fallbackBg || '#1A1838' },
+                      ]}
+                    >
+                      {mediaUri ? (
+                        <Image
+                          source={{ uri: mediaUri }}
+                          style={styles.productThumbImage}
+                          resizeMode="cover"
+                        />
+                      ) : null}
+                      {isVideo && (
+                        <View style={styles.videoThumbBadge}>
+                          <PlayIcon size={12} color="#FFFFFF" />
+                        </View>
+                      )}
                     </View>
-                  </View>
 
-                  {/* Right: Chevron */}
-                  <ChevronRightIcon size={18} color="#8F90A6" />
-                </TouchableOpacity>
-              ))}
+                    {/* Center: Title & Tag Badge */}
+                    <View style={styles.productInfoCol}>
+                      <Text style={styles.productItemTitle} numberOfLines={2}>
+                        {prod.title}
+                      </Text>
+                      <View style={styles.productTagRow}>
+                        <View style={styles.productTagPill}>
+                          <Text style={styles.productTagPillText}>{prod.tag}</Text>
+                        </View>
+                        {isVideo && (
+                          <View style={styles.productVideoPill}>
+                            <PlayIcon size={9} color="#A78BFA" />
+                            <Text style={styles.productVideoPillText}>Video</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Right: Chevron */}
+                    <ChevronRightIcon size={18} color="#8F90A6" />
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -3360,10 +3430,18 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 <Text style={styles.detailSheetTitle}>
                   {selectedProduct?.title}
                 </Text>
-                <View style={styles.detailSheetTagPill}>
-                  <Text style={styles.detailSheetTagText}>
-                    {selectedProduct?.tag}
-                  </Text>
+                <View style={styles.detailTagRow}>
+                  <View style={styles.detailSheetTagPill}>
+                    <Text style={styles.detailSheetTagText}>
+                      {selectedProduct?.tag}
+                    </Text>
+                  </View>
+                  {isProductVideo(selectedProduct) && (
+                    <View style={styles.productVideoPill}>
+                      <PlayIcon size={10} color="#A78BFA" />
+                      <Text style={styles.productVideoPillText}>Video</Text>
+                    </View>
+                  )}
                 </View>
               </View>
 
@@ -3375,6 +3453,47 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 <XIcon size={14} color="#CBD5E1" />
               </TouchableOpacity>
             </View>
+
+            {/* Video Banner if product is video */}
+            {isProductVideo(selectedProduct) && (
+              <TouchableOpacity
+                style={styles.videoBannerContainer}
+                activeOpacity={0.85}
+                onPress={() => {
+                  const url = getFullMediaUrl(
+                    selectedProduct?.mediaUrl || selectedProduct?.imageUrl
+                  );
+                  if (url) {
+                    Linking.openURL(url).catch(err => {
+                      Alert.alert('Cannot open video', err.message);
+                    });
+                  }
+                }}
+              >
+                {selectedProduct?.imageUrl ? (
+                  <Image
+                    source={{
+                      uri: getFullMediaUrl(selectedProduct.imageUrl),
+                    }}
+                    style={styles.videoBannerImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.videoBannerImage,
+                      { backgroundColor: selectedProduct?.fallbackBg || '#1A1838' },
+                    ]}
+                  />
+                )}
+                <View style={styles.videoBannerOverlay}>
+                  <View style={styles.videoPlayCircle}>
+                    <PlayIcon size={20} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.videoPlayText}>Watch Video Preview</Text>
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* Description */}
             <Text style={styles.detailSheetDescription}>
@@ -3434,7 +3553,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                   {user?.name || 'User'}
                 </Text>
                 <Text style={styles.accountPhone}>
-                  {user?.phone || 'Field Rep'}
+                  {user?.phone ? (user.phone.startsWith('+91') ? user.phone : `+91 ${user.phone}`) : 'Guest Account'}
                 </Text>
                 <View style={styles.accountBadge}>
                   <SparklesIcon size={12} color="#8B5CF6" />
@@ -3445,23 +3564,77 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               </View>
             </View>
 
-            <TouchableOpacity
-              style={styles.logoutBtn}
-              onPress={() => {
-                setIsAccountModalVisible(false);
-                showGuestAlert('Log Out', 'Are you sure you want to log out?', [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Log Out',
-                    style: 'destructive',
-                    onPress: () => logout(),
-                  },
-                ]);
-              }}
-            >
-              <LogoutIcon size={16} color="#EF4444" />
-              <Text style={styles.logoutBtnText}>Log Out</Text>
-            </TouchableOpacity>
+            {/* Menu Links */}
+            <View style={styles.accountModalMenu}>
+              <TouchableOpacity
+                style={styles.accountMenuItem}
+                onPress={() => {
+                  setIsAccountModalVisible(false);
+                  navigation?.navigate('GuestAccount');
+                }}
+                activeOpacity={0.7}
+              >
+                <UserIcon size={16} color="#A78BFA" />
+                <Text style={styles.accountMenuItemText}>View Full Profile</Text>
+                <ChevronRightIcon size={14} color="#94A3B8" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.accountMenuItem}
+                onPress={() => {
+                  setIsAccountModalVisible(false);
+                  Linking.openURL('https://salesbuster.ai/#/privacy').catch(() => {});
+                }}
+                activeOpacity={0.7}
+              >
+                <ShieldCheckIcon size={16} color="#A78BFA" />
+                <Text style={styles.accountMenuItemText}>Privacy Policy</Text>
+                <ChevronRightIcon size={14} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.accountModalBtnCol}>
+              <TouchableOpacity
+                style={styles.logoutBtn}
+                onPress={() => {
+                  setIsAccountModalVisible(false);
+                  showGuestAlert('Log Out', 'Are you sure you want to log out?', [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Log Out',
+                      style: 'destructive',
+                      onPress: () => logout(),
+                    },
+                  ]);
+                }}
+              >
+                <LogoutIcon size={16} color="#A78BFA" />
+                <Text style={styles.logoutBtnSecondaryText}>Log Out</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.deleteAccountDialogBtn}
+                onPress={() => {
+                  setIsAccountModalVisible(false);
+                  showGuestAlert(
+                    'Delete Account',
+                    'Are you sure you want to delete your account? You will be immediately logged out of this device.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete Account',
+                        style: 'destructive',
+                        onPress: () => logout(),
+                      },
+                    ]
+                  );
+                }}
+              >
+                <TrashIcon size={16} color="#EF4444" />
+                <Text style={styles.deleteAccountDialogBtnText}>Delete Account</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -4099,26 +4272,26 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                     <View style={styles.instructionsItemsRow}>
                       <View style={styles.checkItemWrap}>
                         <CheckIcon size={12} color="#10B981" />
-                        <Text style={styles.checkItemText}>Name</Text>
+                        <Text style={styles.instructionCheckItemText}>Name</Text>
                       </View>
                       <View style={styles.checkItemWrap}>
                         <CheckIcon size={12} color="#10B981" />
-                        <Text style={styles.checkItemText}>Company</Text>
+                        <Text style={styles.instructionCheckItemText}>Company</Text>
                       </View>
                       <View style={styles.checkItemWrap}>
                         <CheckIcon size={12} color="#10B981" />
-                        <Text style={styles.checkItemText}>Designation</Text>
+                        <Text style={styles.instructionCheckItemText}>Designation</Text>
                       </View>
                     </View>
 
                     <View style={styles.instructionsItemsRow}>
                       <View style={styles.checkItemWrap}>
                         <CheckIcon size={12} color="#10B981" />
-                        <Text style={styles.checkItemText}>Mobile Number</Text>
+                        <Text style={styles.instructionCheckItemText}>Mobile Number</Text>
                       </View>
                       <View style={styles.checkItemWrap}>
                         <StarIcon size={12} color="#F59E0B" />
-                        <Text style={styles.checkItemText}>
+                        <Text style={styles.instructionCheckItemText}>
                           You can add More Information
                         </Text>
                       </View>
@@ -4847,6 +5020,73 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.bold,
   },
 
+  // Prominent View Profile button
+  viewProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#16142B',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.28)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  viewProfileLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  viewProfileAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#7C3AED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1.5,
+    borderColor: '#A78BFA',
+  },
+  viewProfileAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontFamily: Fonts.family.bold,
+  },
+  viewProfileTextCol: {
+    flex: 1,
+  },
+  viewProfileTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontFamily: Fonts.family.bold,
+    letterSpacing: 0.2,
+  },
+  viewProfileSubtitle: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontFamily: Fonts.family.medium,
+    marginTop: 2,
+  },
+  viewProfileArrowWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(124, 58, 237, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.35)',
+    marginLeft: 8,
+  },
+
   // Account footer link
   accountFooterLink: {
     alignItems: 'center',
@@ -5341,12 +5581,97 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 3.5,
-    marginTop: 6,
   },
   productTagPillText: {
     color: '#BDB3E8',
     fontSize: 11,
     fontFamily: Fonts.family.medium,
+  },
+  videoThumbBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  productTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  productVideoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(124, 58, 237, 0.25)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.4)',
+    gap: 4,
+  },
+  productVideoPillText: {
+    color: '#DDD6FE',
+    fontSize: 10,
+    fontFamily: Fonts.family.bold,
+  },
+  detailTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  videoBannerContainer: {
+    width: '100%',
+    height: 140,
+    borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    marginTop: 12,
+    marginBottom: 12,
+    backgroundColor: '#0F0E1E',
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.3)',
+  },
+  videoBannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  videoBannerOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  videoPlayCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#7C3AED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  videoPlayText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: Fonts.family.bold,
   },
 
   // PRODUCT DETAIL POPUP (MATCHING SUCCESS PAGE)
@@ -5484,13 +5809,61 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#1E1B38',
+    borderColor: '#7C3AED',
+    borderWidth: 1,
+    height: 46,
+    borderRadius: 12,
+  },
+  logoutBtnText: {
+    color: '#EF4444',
+    fontSize: 14,
+    fontFamily: Fonts.family.bold,
+    marginLeft: 8,
+  },
+  logoutBtnSecondaryText: {
+    color: '#C084FC',
+    fontSize: 14,
+    fontFamily: Fonts.family.bold,
+    marginLeft: 8,
+  },
+  accountModalMenu: {
+    backgroundColor: '#161730',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2D3054',
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  accountMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#242749',
+  },
+  accountMenuItemText: {
+    flex: 1,
+    color: '#E2E8F0',
+    fontSize: 13.5,
+    fontFamily: Fonts.family.medium,
+    marginLeft: 10,
+  },
+  accountModalBtnCol: {
+    gap: 10,
+  },
+  deleteAccountDialogBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#2D1B28',
     borderColor: '#EF4444',
     borderWidth: 1,
     height: 46,
     borderRadius: 12,
   },
-  logoutBtnText: {
+  deleteAccountDialogBtnText: {
     color: '#EF4444',
     fontSize: 14,
     fontFamily: Fonts.family.bold,
@@ -6003,8 +6376,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    // justifyContent: 'flex-end',
-    overflow: 'hidden',
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
@@ -6207,7 +6578,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  checkItemText: {
+  instructionCheckItemText: {
     color: '#CBD5E1',
     fontSize: 11.5,
     fontFamily: Fonts.family.regular,

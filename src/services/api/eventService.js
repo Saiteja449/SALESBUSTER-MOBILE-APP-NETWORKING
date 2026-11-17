@@ -104,6 +104,21 @@ const normalizeAttachment = (att) => {
   };
 };
 
+export const WHATSAPP_WATERMARK = '-powered by salesbusterAI';
+
+/**
+ * Appends the standard SalesBuster AI watermark to WhatsApp messages if not already present.
+ */
+export const appendWhatsAppWatermark = (text = '') => {
+  const clean = (text || '').trim();
+  if (!clean) return WHATSAPP_WATERMARK;
+  // If the text already has the watermark (case-insensitive), don't duplicate
+  if (clean.includes(WHATSAPP_WATERMARK) || /powered\s+by\s+salesbusterai/i.test(clean)) {
+    return clean;
+  }
+  return `${clean}\n\n${WHATSAPP_WATERMARK}`;
+};
+
 export const eventService = {
   async analyzeVoiceAudio(token, { audioUri, eventName }) {
     const activeToken = await resolveToken(token);
@@ -486,7 +501,8 @@ export const eventService = {
 
     const cleanDigits = phone.replace(/\D/g, '');
     const intlPhone = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
-    const encodedText = encodeURIComponent(messageText || '');
+    const watermarkedText = appendWhatsAppWatermark(messageText || '');
+    const encodedText = encodeURIComponent(watermarkedText);
 
     const directUrl = `whatsapp://send?phone=${intlPhone}&text=${encodedText}`;
     const webFallbackUrl = `https://wa.me/${intlPhone}?text=${encodedText}`;
@@ -538,6 +554,7 @@ export const eventService = {
         ? `${finalMessage.trim()}\n\n${contactMeta.sharableLink}`
         : contactMeta.sharableLink;
     }
+    finalMessage = appendWhatsAppWatermark(finalMessage);
 
     const rawAttachments = Array.isArray(attachments)
       ? attachments

@@ -821,11 +821,11 @@ export function useGeminiLiveVoice(options = {}) {
           const granted = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
             {
-              title: 'Microphone Permission',
+              title: 'Microphone Access for Voice Notes',
               message:
-                'SalesBuster needs microphone access for the SalesBuster AI Voice BI Analyst.',
+                'SalesBuster needs microphone access to record your voice notes and extract attendee contact details using AI speech analysis. Audio is only recorded while you actively open or use voice capture.',
               buttonPositive: 'Allow',
-              buttonNegative: 'Deny',
+              buttonNegative: 'Not Now',
             },
           );
 

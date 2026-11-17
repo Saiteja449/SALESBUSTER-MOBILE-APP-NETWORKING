@@ -23,6 +23,9 @@ export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: `${BASE_URL}/auth/login`,
     GUEST_REGISTER: `${BASE_URL}/auth/guest-register`,
+    SEND_OTP: `${BASE_URL}/auth/send-otp`,
+    VERIFY_OTP: `${BASE_URL}/auth/verify-otp`,
+    COMPLETE_PROFILE: `${BASE_URL}/auth/complete-profile`,
   },
   LEADS: {
     BASE: `${BASE_URL}/leads`,

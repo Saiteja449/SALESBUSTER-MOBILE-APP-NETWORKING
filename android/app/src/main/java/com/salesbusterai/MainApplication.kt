@@ -1,4 +1,4 @@
-package com.salesbustermobileapp
+package com.salesbusterai
 
 import android.app.Application
 import com.facebook.react.PackageList

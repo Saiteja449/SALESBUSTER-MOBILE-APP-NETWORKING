@@ -37,7 +37,7 @@ import {
   TrashIcon,
 } from '../../icons/Icons';
 import { useAuth } from '../../context/AuthContext';
-import { eventService } from '../../services/api/eventService';
+import { eventService, appendWhatsAppWatermark } from '../../services/api/eventService';
 import { getFriendlyErrorMessage } from '../../utils/formatters';
 import { getFullMediaUrl } from '../../utils/constants';
 
@@ -306,6 +306,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
     if (sharableFileLink && !msg.includes(sharableFileLink)) {
       msg = `${msg.trim()}\n\n${sharableFileLink}`;
     }
+    msg = appendWhatsAppWatermark(msg);
 
     try {
       const shareResult = await eventService.shareEventFilesToWhatsApp(
