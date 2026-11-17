@@ -74,6 +74,7 @@ import {
 import { OrgOwnerTabBar } from '../../components/common/OrgOwnerTabBar';
 import { useGuestAlert } from '../../components/guest/GuestAlert';
 import GuestTourModal from '../../components/guest/GuestTourModal';
+import GuestActionableGuidance from '../../components/guest/GuestActionableGuidance';
 import { getFriendlyErrorMessage } from '../../utils/formatters';
 import { getFullMediaUrl } from '../../utils/constants';
 
@@ -377,7 +378,72 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const audioCaptureInfoRef = useRef(null);
   const keepAudioForAnalysisRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
-  const [isCaptureGuideVisible, setIsCaptureGuideVisible] = useState(false);
+  const [isTourModalVisible, setIsTourModalVisible] = useState(false);
+  const [isActionableGuideVisible, setIsActionableGuideVisible] = useState(false);
+  const scrollViewRef = useRef(null);
+  const guidanceEventRef = useRef(null);
+  const guidanceVoiceRef = useRef(null);
+  const guidanceCameraRef = useRef(null);
+  const guidanceFormRef = useRef(null);
+  const guidanceSaveRef = useRef(null);
+  const guidanceContactsRef = useRef(null);
+  const guidanceProductsRef = useRef(null);
+  const [guidanceTargets, setGuidanceTargets] = useState({});
+
+  const measureGuidanceTargets = useCallback(() => {
+    const measurements = {};
+    const measureRef = (ref, key) => {
+      if (ref?.current?.measureInWindow) {
+        ref.current.measureInWindow((x, y, width, height) => {
+          if (width > 0 && height > 0) {
+            measurements[key] = { x, y, width, height };
+          }
+        });
+      }
+    };
+
+    measureRef(guidanceEventRef, 'events');
+    measureRef(guidanceVoiceRef, 'audio');
+    measureRef(guidanceCameraRef, 'image');
+    measureRef(guidanceFormRef, 'form');
+    measureRef(guidanceSaveRef, 'save');
+    measureRef(guidanceContactsRef, 'contacts');
+    measureRef(guidanceProductsRef, 'products');
+
+    setTimeout(() => {
+      setGuidanceTargets(prev => ({ ...prev, ...measurements }));
+    }, 60);
+  }, []);
+
+  const handleGuidanceStepChange = useCallback((stepIndex, stepKey) => {
+    if (stepKey === 'form') {
+      if (scrollViewRef.current?.scrollToPosition) {
+        scrollViewRef.current.scrollToPosition(0, 240, true);
+      } else if (scrollViewRef.current?.scrollTo) {
+        scrollViewRef.current.scrollTo({ y: 240, animated: true });
+      }
+    } else if (stepKey === 'save') {
+      if (scrollViewRef.current?.scrollToEnd) {
+        scrollViewRef.current.scrollToEnd(true);
+      } else if (scrollViewRef.current?.scrollTo) {
+        scrollViewRef.current.scrollTo({ y: 600, animated: true });
+      }
+    } else {
+      if (scrollViewRef.current?.scrollToPosition) {
+        scrollViewRef.current.scrollToPosition(0, 0, true);
+      } else if (scrollViewRef.current?.scrollTo) {
+        scrollViewRef.current.scrollTo({ y: 0, animated: true });
+      }
+    }
+
+    setTimeout(() => {
+      measureGuidanceTargets();
+    }, 320);
+  }, [measureGuidanceTargets]);
+
+  const handleTourComplete = useCallback(() => {
+    setIsTourModalVisible(false);
+  }, []);
 
   useEffect(() => {
     if (!isGuest) return;
@@ -388,17 +454,29 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     AsyncStorage.getItem(guideKey)
       .then(seen => {
         if (isMounted && seen !== 'true') {
-          setIsCaptureGuideVisible(true);
+          setTimeout(() => {
+            if (isMounted) {
+              measureGuidanceTargets();
+              setIsActionableGuideVisible(true);
+            }
+          }, 400);
           AsyncStorage.setItem(guideKey, 'true').catch(() => {});
         }
       })
       .catch(() => {
-        if (isMounted) setIsCaptureGuideVisible(true);
+        if (isMounted) {
+          setTimeout(() => {
+            if (isMounted) {
+              measureGuidanceTargets();
+              setIsActionableGuideVisible(true);
+            }
+          }, 400);
+        }
       });
     return () => {
       isMounted = false;
     };
-  }, [isGuest, user?.id, user?._id, user?.email]);
+  }, [isGuest, measureGuidanceTargets, user?.id, user?._id, user?.email]);
 
   // WhatsApp Confirmation Modal State
   const [isWhatsAppConfirmVisible, setIsWhatsAppConfirmVisible] =
@@ -777,14 +855,14 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
           setIsNoEventModalVisible(false);
         } else {
           setSelectedEvent(null);
-          setIsNoEventModalVisible(true);
+          setIsNoEventModalVisible(false);
         }
       }
     } catch (err) {
       console.warn('[GuestHome] Failed to load events:', err);
       if (events.length === 0) {
         setSelectedEvent(null);
-        setIsNoEventModalVisible(true);
+        setIsNoEventModalVisible(false);
       }
     } finally {
     }
@@ -2476,6 +2554,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         )}
 
         <KeyboardAwareScrollView
+          ref={scrollViewRef}
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -2485,6 +2564,8 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
           <View style={styles.topBar}>
             {/* Our Products */}
             <TouchableOpacity
+              ref={guidanceProductsRef}
+              collapsable={false}
               style={styles.productsBtn}
               onPress={() => setIsProductsModalVisible(true)}
               activeOpacity={0.8}
@@ -2497,6 +2578,8 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             <View style={styles.topBarRight}>
               {/* Contacts Pill Button */}
               <TouchableOpacity
+                ref={guidanceContactsRef}
+                collapsable={false}
                 style={styles.pillActionBtn}
                 onPress={() => {
                   navigation?.navigate('EventContacts', {
@@ -2529,10 +2612,10 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 <Text style={styles.pillActionBtnText}>New Event</Text>
               </TouchableOpacity>
 
-              {/* Info Guide Circle Button */}
+              {/* Info Guide Circle Button - Opens GuestTourModal */}
               <TouchableOpacity
                 style={styles.infoCircleBtn}
-                onPress={() => setIsCaptureGuideVisible(true)}
+                onPress={() => setIsTourModalVisible(true)}
                 activeOpacity={0.8}
               >
                 <ExactInfoIcon size={16} color="#0B0A1F" />
@@ -2541,7 +2624,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
           </View>
 
           {/* 2. EVENT TITLE & LOCATION HEADER */}
-          <View style={styles.eventHeader}>
+          <View
+            ref={guidanceEventRef}
+            collapsable={false}
+            style={styles.eventHeader}
+          >
             <View style={styles.eventTitleContainer}>
               <TouchableOpacity
                 style={styles.eventTitleRow}
@@ -2598,6 +2685,8 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
           {/* 3. DUAL CAPTURE CARDS: CAPTURE VOICE & CAPTURE CARD */}
           <View style={styles.captureCardsRow}>
             <TouchableOpacity
+              ref={guidanceVoiceRef}
+              collapsable={false}
               style={styles.captureCardBig}
               onPress={handleOpenVoiceCapture}
               activeOpacity={0.8}
@@ -2608,6 +2697,8 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
+              ref={guidanceCameraRef}
+              collapsable={false}
               style={styles.captureCardBig}
               onPress={handleCaptureCard}
               activeOpacity={0.8}
@@ -2674,7 +2765,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
           )}
 
           {/* 4. FORM INPUT FIELDS */}
-          <View style={styles.formSection}>
+          <View
+            ref={guidanceFormRef}
+            collapsable={false}
+            style={styles.formSection}
+          >
             {/* Name */}
             <View style={styles.inputCard}>
               <TextInput
@@ -2813,6 +2908,8 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
+              ref={guidanceSaveRef}
+              collapsable={false}
               style={[
                 styles.bottomSaveBtn,
                 submitting && styles.bottomSaveBtnDisabled,
@@ -3011,7 +3108,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       {/* MODAL 1B: NO EVENT POPUP */}
       {/* ========================================================================= */}
       <Modal
-        visible={isNoEventModalVisible}
+        visible={Boolean(isNoEventModalVisible && !isActionableGuideVisible && !isTourModalVisible)}
         transparent
         animationType="fade"
         onRequestClose={() => setIsNoEventModalVisible(false)}
@@ -3548,10 +3645,19 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
-      {/* GUEST TOUR / INFO GUIDE MODAL (4-STEP INTERACTIVE TOUR) */}
+      {/* 1. GUEST TOUR MODAL (4-STEP OVERVIEW - Triggered via Info 'i' Button) */}
       <GuestTourModal
-        visible={isCaptureGuideVisible}
-        onClose={() => setIsCaptureGuideVisible(false)}
+        visible={isTourModalVisible}
+        onClose={() => setIsTourModalVisible(false)}
+        onComplete={handleTourComplete}
+      />
+
+      {/* 2. GUEST ACTIONABLE GUIDANCE (7-STEP COMIC SPEECH-BUBBLE TOUR) */}
+      <GuestActionableGuidance
+        visible={isActionableGuideVisible}
+        onClose={() => setIsActionableGuideVisible(false)}
+        targets={guidanceTargets}
+        onStepChange={handleGuidanceStepChange}
       />
       {/* ========================================================================= */}
       {/* MODAL: VOICE CAPTURE POPUP (EXACT MATCH TO DESIGN - IMAGE 2) */}

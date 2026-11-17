@@ -70,7 +70,7 @@ const GuestAppNavigator = () => {
             isAuthenticated && isGuest
               ? hasCompletedPermissionSetup
                 ? 'Main'
-                : 'PermissionSetup'
+                : 'PermissionSetupInitial'
               : hasSeenOnboarding
               ? 'Login'
               : 'Onboarding'
@@ -78,11 +78,13 @@ const GuestAppNavigator = () => {
           screenOptions={{ headerShown: false }}
         >
           {isAuthenticated && isGuest && !hasCompletedPermissionSetup ? (
-            <Stack.Screen name="PermissionSetup">
+            <Stack.Screen name="PermissionSetupInitial">
               {(props) => (
                 <PermissionSetupScreen
                   {...props}
-                  onComplete={() => setHasCompletedPermissionSetup(true)}
+                  onComplete={() => {
+                    setHasCompletedPermissionSetup(true);
+                  }}
                 />
               )}
             </Stack.Screen>

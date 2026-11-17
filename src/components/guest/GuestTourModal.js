@@ -332,7 +332,7 @@ const TOUR_STEPS = [
 // Main Component
 // ---------------------------------------------------------------------------
 
-const GuestTourModal = ({ visible, onClose }) => {
+const GuestTourModal = ({ visible, onClose, onComplete }) => {
   const { width, height } = useWindowDimensions();
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -403,7 +403,11 @@ const GuestTourModal = ({ visible, onClose }) => {
       });
     } else {
       // Completed all steps!
-      onClose?.();
+      if (typeof onComplete === 'function') {
+        onComplete();
+      } else {
+        onClose?.();
+      }
     }
   };
 

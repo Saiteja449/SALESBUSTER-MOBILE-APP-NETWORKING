@@ -249,13 +249,22 @@ const PermissionSetupScreen = ({
     try {
       if (onComplete) {
         onComplete();
-      } else if (onClose) {
-        onClose();
-      } else if (navigation?.canGoBack?.()) {
-        navigation.goBack();
-      } else if (navigation?.replace) {
-        navigation.replace('Main');
       }
+      if (isModal) {
+        if (onClose) {
+          onClose();
+        } else if (navigation?.canGoBack?.()) {
+          navigation.goBack();
+        }
+      } else {
+        if (navigation?.replace) {
+          navigation.replace('Main');
+        } else if (navigation?.navigate) {
+          navigation.navigate('Main');
+        }
+      }
+    } catch (navError) {
+      console.warn('Navigation error in handleContinue:', navError);
     } finally {
       setIsContinuing(false);
     }
