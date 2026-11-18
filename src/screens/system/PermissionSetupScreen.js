@@ -19,15 +19,9 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, {
-  Defs,
-  RadialGradient,
-  Rect,
-  Stop,
-} from 'react-native-svg';
 import Text from '../../components/common/AppText';
+import BrandGradientBackground from '../../components/common/BrandGradientBackground';
 import {
-  USER_ROLE_KEYS,
   getPermissionSetupKey,
   getPermissionsForRole,
 } from '../../config/rolePermissions';
@@ -39,6 +33,7 @@ import {
   ContactsIcon,
   MicIcon,
   ShieldCheckIcon,
+  XIcon,
   ZapIcon,
 } from '../../icons/Icons';
 import {
@@ -49,24 +44,20 @@ import {
 } from '../../services/PermissionService';
 import { Fonts } from '../../styles/Fonts';
 import { Spacing } from '../../styles/Spacing';
-import { SalesBusterLogo } from '../../components/common/BrandLogo';
 
 const PALETTE = {
-  bgDeep: 'rgba(4, 5, 15, 1)',
-  bgStatusBar: '#04050F',
-  cardBg: '#17162A',
-  cardGrantedBg: 'rgba(23, 22, 42, 0.96)',
-  cardBorder: '#363252',
-  cardGrantedBorder: 'rgba(52, 211, 153, 0.4)',
-  cardBlockedBorder: 'rgba(248, 113, 113, 0.42)',
-  electricBlue: '#7C3AED',
-  electricBlueBright: '#A78BFA',
-  orangeAccent: '#A855F7',
-  orangeSoft: '#C4B5FD',
-  emerald: '#34D399',
-  amber: '#FBBF24',
-  coral: '#F87171',
-  textPrimary: '#F8FAFC',
+  bgDeep: '#0A0D14',
+  bgStatusBar: '#0A0D14',
+  cardBg: '#111827',
+  cardBorder: 'rgba(255, 255, 255, 0.06)',
+  cardGrantedBorder: 'rgba(16, 185, 129, 0.28)',
+  cardBlockedBorder: 'rgba(239, 68, 68, 0.3)',
+  purpleAccent: '#8B5CF6',
+  purpleBright: '#A78BFA',
+  emerald: '#10B981',
+  amber: '#F59E0B',
+  coral: '#EF4444',
+  textPrimary: '#FFFFFF',
   textSecondary: '#94A3B8',
   textMuted: '#64748B',
 };
@@ -74,50 +65,50 @@ const PALETTE = {
 const renderPermissionIcon = (iconKey, color) => {
   switch (iconKey) {
     case 'notifications':
-      return <BellIcon size={20} color={color} />;
+      return <BellIcon size={18} color={color} />;
     case 'microphone':
-      return <MicIcon size={20} color={color} />;
+      return <MicIcon size={18} color={color} />;
     case 'contacts':
-      return <ContactsIcon size={20} color={color} />;
+      return <ContactsIcon size={18} color={color} />;
     case 'camera':
-      return <CameraIcon size={20} color={color} />;
+      return <CameraIcon size={18} color={color} />;
     case 'background':
-      return <ZapIcon size={20} color={color} />;
+      return <ZapIcon size={18} color={color} />;
     default:
-      return <ShieldCheckIcon size={20} color={color} />;
+      return <ShieldCheckIcon size={18} color={color} />;
   }
 };
 
-const getStatusMeta = (status) => {
+const getStatusMeta = status => {
   switch (status) {
     case PERMISSION_STATUS.GRANTED:
       return {
         label: 'Enabled',
         color: PALETTE.emerald,
-        bg: 'rgba(16, 185, 129, 0.14)',
-        border: 'rgba(52, 211, 153, 0.3)',
+        bg: 'rgba(16, 185, 129, 0.12)',
+        border: 'rgba(16, 185, 129, 0.25)',
       };
     case PERMISSION_STATUS.BLOCKED:
       return {
-        label: 'Blocked',
+        label: 'Not enabled',
         color: PALETTE.coral,
-        bg: 'rgba(239, 68, 68, 0.14)',
-        border: 'rgba(248, 113, 113, 0.35)',
+        bg: 'rgba(239, 68, 68, 0.12)',
+        border: 'rgba(239, 68, 68, 0.25)',
       };
     case PERMISSION_STATUS.UNAVAILABLE:
       return {
         label: 'Unavailable',
         color: PALETTE.textMuted,
-        bg: 'rgba(100, 116, 139, 0.14)',
-        border: 'rgba(100, 116, 139, 0.25)',
+        bg: 'rgba(100, 116, 139, 0.12)',
+        border: 'rgba(100, 116, 139, 0.2)',
       };
     case PERMISSION_STATUS.DENIED:
     default:
       return {
-        label: 'Pending',
+        label: 'Not enabled',
         color: PALETTE.textSecondary,
-        bg: 'rgba(148, 163, 184, 0.12)',
-        border: 'rgba(148, 163, 184, 0.22)',
+        bg: 'rgba(148, 163, 184, 0.1)',
+        border: 'rgba(148, 163, 184, 0.18)',
       };
   }
 };
@@ -133,13 +124,10 @@ const PermissionSetupScreen = ({
   const { width, height } = useWindowDimensions();
   const isCompact = height < 700 || width < 360;
 
-  const { roleKey, roleLabel, permissions } = useMemo(
-    () => getPermissionsForRole(user),
-    [user],
-  );
+  const { permissions } = useMemo(() => getPermissionsForRole(user), [user]);
 
   const permissionIds = useMemo(
-    () => permissions.map((item) => item.id),
+    () => permissions.map(item => item.id),
     [permissions],
   );
 
@@ -151,15 +139,17 @@ const PermissionSetupScreen = ({
   const [isAllowingAll, setIsAllowingAll] = useState(false);
 
   const contentOpacity = useRef(new Animated.Value(0)).current;
-  const contentTranslateY = useRef(new Animated.Value(12)).current;
+  const contentTranslateY = useRef(new Animated.Value(10)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
 
   const refreshStatuses = useCallback(async () => {
     try {
       const next = await checkPermissionsBatch(permissionIds, statuses);
       setStatuses(next);
+      return next;
     } catch (error) {
       console.warn('Failed to refresh permission statuses:', error);
+      return statuses;
     } finally {
       setIsInitialLoading(false);
     }
@@ -185,7 +175,7 @@ const PermissionSetupScreen = ({
 
     loadInitial();
 
-    const sub = AppState.addEventListener('change', (nextState) => {
+    const sub = AppState.addEventListener('change', nextState => {
       if (nextState === 'active') {
         refreshStatuses();
       }
@@ -201,13 +191,13 @@ const PermissionSetupScreen = ({
     const entrance = Animated.parallel([
       Animated.timing(contentOpacity, {
         toValue: 1,
-        duration: 400,
+        duration: 350,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(contentTranslateY, {
         toValue: 0,
-        duration: 400,
+        duration: 350,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -216,7 +206,7 @@ const PermissionSetupScreen = ({
     return () => entrance.stop();
   }, [contentOpacity, contentTranslateY]);
 
-  const handleEnablePermission = async (item) => {
+  const handleEnablePermission = async item => {
     if (requestingId || isContinuing) return;
 
     const current = statuses[item.id];
@@ -230,8 +220,8 @@ const PermissionSetupScreen = ({
       }
 
       const result = await requestPermissionById(item.id, current);
-      setHasAttemptedMap((prev) => ({ ...prev, [item.id]: true }));
-      setStatuses((prev) => ({ ...prev, [item.id]: result }));
+      setHasAttemptedMap(prev => ({ ...prev, [item.id]: true }));
+      setStatuses(prev => ({ ...prev, [item.id]: result }));
     } finally {
       setRequestingId(null);
     }
@@ -258,10 +248,33 @@ const PermissionSetupScreen = ({
           navigation.goBack();
         }
       } else {
-        if (navigation?.replace) {
-          navigation.replace('Main');
+        const needsProfile =
+          user?.isProfileComplete !== true &&
+          (!user?.name || user.name.trim().length === 0 || user.name.startsWith('Guest_'));
+        const nextRoute = needsProfile ? 'SpeechRegistration' : 'Main';
+
+        if (navigation?.reset) {
+          try {
+            navigation.reset({ index: 0, routes: [{ name: nextRoute }] });
+          } catch {
+            if (navigation?.replace) {
+              try {
+                navigation.replace(nextRoute);
+              } catch {
+                navigation.navigate?.(nextRoute);
+              }
+            } else if (navigation?.navigate) {
+              navigation.navigate(nextRoute);
+            }
+          }
+        } else if (navigation?.replace) {
+          try {
+            navigation.replace(nextRoute);
+          } catch {
+            navigation.navigate?.(nextRoute);
+          }
         } else if (navigation?.navigate) {
-          navigation.navigate('Main');
+          navigation.navigate(nextRoute);
         }
       }
     } catch (navError) {
@@ -274,47 +287,54 @@ const PermissionSetupScreen = ({
   const handleAllowAll = async () => {
     if (isAllowingAll || isContinuing) return;
     setIsAllowingAll(true);
+    let updatedStatuses = { ...statuses };
     try {
       const pendingList = permissions.filter(
-        (p) =>
+        p =>
           statuses[p.id] !== PERMISSION_STATUS.GRANTED &&
-          statuses[p.id] !== PERMISSION_STATUS.UNAVAILABLE
+          statuses[p.id] !== PERMISSION_STATUS.UNAVAILABLE,
       );
 
       for (const item of pendingList) {
-        const current = statuses[item.id] || PERMISSION_STATUS.DENIED;
+        const current = updatedStatuses[item.id] || PERMISSION_STATUS.DENIED;
         if (current === PERMISSION_STATUS.BLOCKED) {
           continue;
         }
         setRequestingId(item.id);
         const result = await requestPermissionById(item.id, current);
-        setHasAttemptedMap((prev) => ({ ...prev, [item.id]: true }));
-        setStatuses((prev) => ({ ...prev, [item.id]: result }));
+        setHasAttemptedMap(prev => ({ ...prev, [item.id]: true }));
+        updatedStatuses[item.id] = result;
+        setStatuses(prev => ({ ...prev, [item.id]: result }));
       }
     } finally {
       setRequestingId(null);
       setIsAllowingAll(false);
-      await refreshAllStatuses();
+      const latest = await refreshStatuses();
+      const finalStatuses = latest || updatedStatuses;
+      const allDone = permissions.every(
+        p =>
+          finalStatuses[p.id] === PERMISSION_STATUS.GRANTED ||
+          finalStatuses[p.id] === PERMISSION_STATUS.UNAVAILABLE,
+      );
+      if (allDone) {
+        handleContinue();
+      }
     }
   };
 
   const enabledCount = permissions.filter(
-    (p) => statuses[p.id] === PERMISSION_STATUS.GRANTED,
+    p => statuses[p.id] === PERMISSION_STATUS.GRANTED,
   ).length;
   const totalCount = permissions.length;
   const progressPercent =
     totalCount > 0 ? Math.round((enabledCount / totalCount) * 100) : 100;
 
-  const missingRequiredCount = permissions.filter(
-    (p) => p.required && statuses[p.id] !== PERMISSION_STATUS.GRANTED,
-  ).length;
-
   const allPermissionsGranted =
     totalCount > 0 &&
     permissions.every(
-      (p) =>
+      p =>
         statuses[p.id] === PERMISSION_STATUS.GRANTED ||
-        statuses[p.id] === PERMISSION_STATUS.UNAVAILABLE
+        statuses[p.id] === PERMISSION_STATUS.UNAVAILABLE,
     );
 
   return (
@@ -324,32 +344,12 @@ const PermissionSetupScreen = ({
         backgroundColor={PALETTE.bgStatusBar}
       />
 
-      {/* Guest-matched dark backdrop & soft purple radial glow */}
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
-          <Defs>
-            <RadialGradient id="permTopGlow" cx="50%" cy="10%" r="48%">
-              <Stop offset="0" stopColor="#8B5CF6" stopOpacity="0.26" />
-              <Stop offset="0.6" stopColor="#6D28D9" stopOpacity="0.09" />
-              <Stop offset="1" stopColor="#04050F" stopOpacity="0" />
-            </RadialGradient>
-          </Defs>
-          <Rect
-            x="0"
-            y="0"
-            width={width}
-            height={height}
-            fill="url(#permTopGlow)"
-          />
-        </Svg>
-      </View>
-
       <Animated.View
         style={[
           styles.container,
           {
-            paddingTop: Math.max(insets.top + 12, 20),
-            paddingBottom: Math.max(insets.bottom + 14, 20),
+            paddingTop: Math.max(insets.top + (isCompact ? 8 : 14), 16),
+            paddingBottom: Math.max(insets.bottom + 12, 16),
             opacity: contentOpacity,
             transform: [{ translateY: contentTranslateY }],
           },
@@ -357,57 +357,37 @@ const PermissionSetupScreen = ({
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerTopRow}>
-            <View style={styles.logoBadge}>
-              <SalesBusterLogo width={100} height={24} />
-            </View>
-
-            <View style={styles.headerRight}>
-              <View style={styles.rolePill}>
-                <Text style={styles.rolePillText}>{roleLabel}</Text>
+          {isModal && onClose ? (
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.title, isCompact && styles.titleCompact]}>
+                  Let's get you ready!
+                </Text>
               </View>
-              {isModal && onClose && (
-                <TouchableOpacity
-                  onPress={onClose}
-                  style={styles.closeBtn}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Text style={styles.closeBtnText}>✕</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <XIcon size={16} color={PALETTE.textSecondary} />
+              </TouchableOpacity>
             </View>
-          </View>
+          ) : (
+            <Text style={[styles.title, isCompact && styles.titleCompact]}>
+              Let's get you ready!
+            </Text>
+          )}
 
-          <Text style={[styles.title, isCompact && styles.titleCompact]}>
-            Set Up Your SalesBuster
-          </Text>
           <Text style={styles.subtitle}>
-            Enable permissions for seamless event lead capture, live AI voice, and visiting card scanning.
+            Enable permissions to capture leads faster and use SalesBuster
+            features.
           </Text>
-
-          {/* Progress Bar */}
-          <View style={styles.progressSection}>
-            <View style={styles.progressLabelRow}>
-              <Text style={styles.progressText}>
-                {enabledCount} of {totalCount} permissions enabled
-              </Text>
-              <Text style={styles.progressPercent}>{progressPercent}%</Text>
-            </View>
-            <View style={styles.progressTrack}>
-              <View
-                style={[styles.progressFill, { width: `${progressPercent}%` }]}
-              />
-            </View>
-          </View>
         </View>
 
-        {/* Permission Cards List */}
+        {/* Content Body */}
         {isInitialLoading ? (
           <View style={styles.loadingState}>
-            <ActivityIndicator
-              size="large"
-              color={PALETTE.electricBlueBright}
-            />
+            <ActivityIndicator size="large" color={PALETTE.purpleBright} />
             <Text style={styles.loadingStateText}>
               Checking device permissions...
             </Text>
@@ -418,48 +398,25 @@ const PermissionSetupScreen = ({
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Prominent Play Store Transparency & Privacy Notice */}
-            <View style={styles.privacyNoticeCard}>
-              <View style={styles.privacyNoticeHeader}>
-                <ShieldCheckIcon size={18} color="#34D399" />
-                <Text style={styles.privacyNoticeTitle}>
-                  Play Store Privacy & Data Transparency
-                </Text>
+            {/* Privacy Notice Card */}
+            <View style={styles.privacyCard}>
+              <View style={styles.privacyHeader}>
+                <ShieldCheckIcon size={15} color={PALETTE.purpleBright} />
+                <Text style={styles.privacyTitle}>Your privacy matters</Text>
               </View>
-              <Text style={styles.privacyNoticeDesc}>
-                SalesBuster accesses device permissions strictly to power on-demand event lead capture requested by you. Voice and camera are only active while you actively record or take a photo. Your data stays securely in your private workspace and is never sold or shared with third-party advertisers.
+              <Text style={styles.privacyDescription}>
+                SalesBuster uses permissions only to provide the features you
+                choose. You can manage access anytime in your device settings.
               </Text>
             </View>
 
-            {permissions.map((item) => {
+            {/* Permission Cards */}
+            {permissions.map(item => {
               const status = statuses[item.id] || PERMISSION_STATUS.DENIED;
               const isGranted = status === PERMISSION_STATUS.GRANTED;
               const isBlocked = status === PERMISSION_STATUS.BLOCKED;
               const isUnavailable = status === PERMISSION_STATUS.UNAVAILABLE;
-              const wasAttemptedAndDenied =
-                hasAttemptedMap[item.id] && status === PERMISSION_STATUS.DENIED;
-
-              const statusMeta = isGranted
-                ? getStatusMeta(PERMISSION_STATUS.GRANTED)
-                : isBlocked
-                ? getStatusMeta(PERMISSION_STATUS.BLOCKED)
-                : isUnavailable
-                ? getStatusMeta(PERMISSION_STATUS.UNAVAILABLE)
-                : wasAttemptedAndDenied
-                ? {
-                    label: 'Denied',
-                    color: PALETTE.amber,
-                    bg: 'rgba(251, 191, 36, 0.14)',
-                    border: 'rgba(251, 191, 36, 0.3)',
-                  }
-                : getStatusMeta(PERMISSION_STATUS.DENIED);
-
-              const iconColor = isGranted
-                ? PALETTE.emerald
-                : isBlocked
-                ? PALETTE.coral
-                : PALETTE.electricBlueBright;
-
+              const statusMeta = getStatusMeta(status);
               const isBusy = requestingId === item.id;
 
               return (
@@ -471,107 +428,83 @@ const PermissionSetupScreen = ({
                     isBlocked && styles.cardBlocked,
                   ]}
                 >
-                  <View style={styles.cardTopRow}>
+                  <View style={styles.cardMainRow}>
                     <View
                       style={[
                         styles.cardIconBox,
                         isGranted && styles.cardIconBoxGranted,
                       ]}
                     >
-                      {renderPermissionIcon(item.icon, iconColor)}
+                      {renderPermissionIcon(
+                        item.icon,
+                        isGranted ? PALETTE.emerald : PALETTE.purpleBright,
+                      )}
                     </View>
 
-                    <View style={styles.cardTitleBlock}>
-                      <View style={styles.cardTitleRow}>
+                    <View style={styles.cardInfo}>
+                      <View style={styles.cardHeaderRow}>
                         <Text style={styles.cardTitle}>{item.title}</Text>
                         <View
                           style={[
-                            styles.reqBadge,
-                            item.required
-                              ? styles.reqBadgeRequired
-                              : styles.reqBadgeOptional,
+                            styles.statusBadge,
+                            {
+                              backgroundColor: statusMeta.bg,
+                              borderColor: statusMeta.border,
+                            },
                           ]}
                         >
                           <Text
                             style={[
-                              styles.reqBadgeText,
-                              item.required
-                                ? styles.reqBadgeTextRequired
-                                : styles.reqBadgeTextOptional,
+                              styles.statusBadgeText,
+                              { color: statusMeta.color },
                             ]}
                           >
-                            {item.required ? 'Required' : 'Optional'}
+                            {statusMeta.label}
                           </Text>
                         </View>
                       </View>
-                      {item.usageTag ? (
-                        <Text style={styles.cardUsageTag}>• {item.usageTag}</Text>
-                      ) : null}
-                    </View>
 
-                    <View
-                      style={[
-                        styles.statusPill,
-                        {
-                          backgroundColor: statusMeta.bg,
-                          borderColor: statusMeta.border,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.statusPillText,
-                          { color: statusMeta.color },
-                        ]}
-                      >
-                        {statusMeta.label}
+                      <Text style={styles.cardDescription} numberOfLines={2}>
+                        {item.description}
                       </Text>
                     </View>
                   </View>
 
-                  <Text style={styles.cardDescription}>{item.description}</Text>
+                  <View style={styles.cardActionRow}>
+                    <View style={styles.reqTagWrapper}>
+                      {item.required ? (
+                        <View style={styles.requiredPill}>
+                          <Text style={styles.requiredPillText}>Required</Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.optionalText}>Optional</Text>
+                      )}
+                    </View>
 
-                  {(isBlocked || wasAttemptedAndDenied) && (
-                    <Text style={styles.helperNotice}>
-                      {isBlocked
-                        ? 'Permission was permanently denied. Open Settings to enable it manually.'
-                        : item.required
-                        ? 'This feature cannot run fully until this permission is enabled.'
-                        : 'You can enable this now or skip and turn it on later.'}
-                    </Text>
-                  )}
-
-                  <View style={styles.cardFooter}>
                     {isGranted ? (
-                      <View style={styles.enabledBadgeRow}>
-                        <CheckIcon size={16} color={PALETTE.emerald} />
-                        <Text style={styles.enabledConfirmText}>
-                          Confirmed by device
-                        </Text>
+                      <View style={styles.grantedPill}>
+                        <CheckIcon size={13} color={PALETTE.emerald} />
+                        <Text style={styles.grantedPillText}>Enabled</Text>
                       </View>
                     ) : isUnavailable ? (
-                      <Text style={styles.unavailableText}>
-                        Not required on this device
-                      </Text>
+                      <Text style={styles.unavailableText}>Unavailable</Text>
                     ) : (
                       <TouchableOpacity
                         style={[
-                          styles.enableBtn,
-                          isBlocked && styles.settingsBtn,
+                          styles.actionBtn,
+                          isBlocked && styles.settingsActionBtn,
                         ]}
                         onPress={() => handleEnablePermission(item)}
-                        disabled={Boolean(requestingId) || isContinuing}
+                        disabled={
+                          Boolean(requestingId) || isContinuing || isAllowingAll
+                        }
                         activeOpacity={0.8}
                       >
                         {isBusy ? (
                           <ActivityIndicator size="small" color="#FFFFFF" />
                         ) : (
-                          <Text style={styles.enableBtnText}>
-                            {isBlocked
-                              ? 'Open Settings'
-                              : wasAttemptedAndDenied
-                              ? 'Try Again'
-                              : 'Enable'}
+                          <Text style={styles.actionBtnText}>
+                            {isBlocked ? 'Open Settings' : 'Enable'}
                           </Text>
                         )}
                       </TouchableOpacity>
@@ -583,23 +516,15 @@ const PermissionSetupScreen = ({
           </ScrollView>
         )}
 
-        {/* Bottom CTA */}
+        {/* Bottom Action Section */}
         <View style={styles.footer}>
-          {missingRequiredCount > 0 && !isInitialLoading && (
-            <Text style={styles.missingRequiredNote}>
-              {missingRequiredCount} required{' '}
-              {missingRequiredCount === 1 ? 'permission is' : 'permissions are'}{' '}
-              still pending — some features may be limited until enabled.
-            </Text>
-          )}
-
           {allPermissionsGranted ? (
             <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
               <TouchableOpacity
                 onPress={handleContinue}
                 onPressIn={() =>
                   Animated.spring(buttonScale, {
-                    toValue: 0.975,
+                    toValue: 0.98,
                     useNativeDriver: true,
                   }).start()
                 }
@@ -617,12 +542,14 @@ const PermissionSetupScreen = ({
                   isContinuing && styles.continueBtnDisabled,
                 ]}
               >
+                <BrandGradientBackground
+                  id="perm_continue_btn_grad"
+                  borderRadius={16}
+                />
                 {isContinuing ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.continueBtnText}>
-                    Continue to SalesBuster
-                  </Text>
+                  <Text style={styles.continueBtnText}>Continue</Text>
                 )}
               </TouchableOpacity>
             </Animated.View>
@@ -635,30 +562,33 @@ const PermissionSetupScreen = ({
                 activeOpacity={0.8}
                 style={styles.skipBtn}
               >
-                <Text style={styles.skipBtnText}>Skip for now</Text>
+                <Text style={styles.skipBtnText}>
+                  {enabledCount < 1 ? 'Skip for now' : 'Skip Rest'}
+                </Text>
               </TouchableOpacity>
 
-              {/* Allow all */}
+              {/* Allow All */}
               <TouchableOpacity
                 onPress={handleAllowAll}
                 disabled={isContinuing || isAllowingAll}
                 activeOpacity={0.85}
-                style={[
-                  styles.allowAllBtn,
-                  isAllowingAll && styles.allowAllBtnDisabled,
-                ]}
+                style={styles.continueBtnPrimary}
               >
+                <BrandGradientBackground
+                  id="perm_allow_all_primary_grad"
+                  borderRadius={16}
+                />
                 {isAllowingAll ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.allowAllBtnText}>Allow all</Text>
+                  <Text style={styles.continueBtnText}>Allow All</Text>
                 )}
               </TouchableOpacity>
             </View>
           )}
 
           <Text style={styles.footerHint}>
-            You can update permissions anytime in your device settings.
+            You can change permissions anytime in Settings.
           </Text>
         </View>
       </Animated.View>
@@ -673,110 +603,83 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: 20,
   },
   header: {
-    marginBottom: Spacing.md,
+    marginBottom: 12,
   },
-  headerTopRow: {
+  modalHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.md,
-  },
-  logoBadge: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.35)',
-    width: 120,
-    height: 40,
-    justifyContent: 'center',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  rolePill: {
-    backgroundColor: 'rgba(23, 22, 42, 0.65)',
-    borderWidth: 1,
-    borderColor: 'rgba(221, 214, 254, 0.38)',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  rolePillText: {
-    fontSize: 11.5,
-    fontFamily: Fonts.family.semiBold,
-    color: PALETTE.orangeSoft,
-    letterSpacing: 0.3,
   },
   closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(148, 163, 184, 0.16)',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  closeBtnText: {
-    color: PALETTE.textPrimary,
-    fontSize: 14,
-    fontFamily: Fonts.family.bold,
-  },
   title: {
-    fontSize: 25,
-    fontFamily: Fonts.family.extraBold,
+    fontSize: 22,
+    fontFamily: Fonts.family.bold,
     color: PALETTE.textPrimary,
-    letterSpacing: 0.3,
-    marginBottom: 6,
+    letterSpacing: -0.2,
+    marginBottom: 4,
   },
   titleCompact: {
-    fontSize: 22,
+    fontSize: 18,
   },
   subtitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontFamily: Fonts.family.regular,
     color: PALETTE.textSecondary,
-    lineHeight: 19,
-    marginBottom: Spacing.md,
+    lineHeight: 18,
+    marginBottom: 12,
   },
-  progressSection: {
-    backgroundColor: 'rgba(13, 25, 51, 0.72)',
+  progressCard: {
+    backgroundColor: 'rgba(17, 24, 39, 0.7)',
     borderWidth: 1,
-    borderColor: PALETTE.cardBorder,
-    borderRadius: 14,
-    padding: 12,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  progressLabelRow: {
+  progressTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
-  progressText: {
-    fontSize: 12.5,
-    fontFamily: Fonts.family.semiBold,
-    color: PALETTE.textPrimary,
+  progressLabel: {
+    fontSize: 12,
+    fontFamily: Fonts.family.medium,
+    color: PALETTE.textSecondary,
   },
-  progressPercent: {
-    fontSize: 12.5,
+  allowAllQuickBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: 'rgba(139, 92, 246, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.3)',
+  },
+  allowAllQuickBtnText: {
+    fontSize: 11.5,
     fontFamily: Fonts.family.bold,
-    color: PALETTE.electricBlueBright,
+    color: PALETTE.purpleBright,
   },
   progressTrack: {
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: 'rgba(148, 163, 184, 0.18)',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 3,
-    backgroundColor: PALETTE.electricBlueBright,
+    borderRadius: 2,
+    backgroundColor: PALETTE.purpleAccent,
   },
   loadingState: {
     flex: 1,
@@ -785,7 +688,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingStateText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontFamily: Fonts.family.medium,
     color: PALETTE.textSecondary,
   },
@@ -793,250 +696,215 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingVertical: 4,
     paddingBottom: 12,
-    gap: 12,
+    gap: 10,
   },
-  privacyNoticeCard: {
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+  privacyCard: {
+    backgroundColor: 'rgba(17, 24, 39, 0.65)',
     borderWidth: 1,
-    borderColor: 'rgba(52, 211, 153, 0.28)',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 4,
+    borderColor: 'rgba(139, 92, 246, 0.16)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 2,
   },
-  privacyNoticeHeader: {
+  privacyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
+    gap: 6,
+    marginBottom: 4,
   },
-  privacyNoticeTitle: {
-    fontSize: 13,
+  privacyTitle: {
+    fontSize: 12.5,
     fontFamily: Fonts.family.bold,
-    color: '#34D399',
+    color: PALETTE.textPrimary,
   },
-  privacyNoticeDesc: {
-    fontSize: 12,
+  privacyDescription: {
+    fontSize: 11.5,
     fontFamily: Fonts.family.regular,
-    color: '#CBD5E1',
-    lineHeight: 17,
+    color: PALETTE.textSecondary,
+    lineHeight: 16.5,
   },
   card: {
     backgroundColor: PALETTE.cardBg,
     borderWidth: 1,
     borderColor: PALETTE.cardBorder,
-    borderRadius: 18,
-    padding: 15,
+    borderRadius: 14,
+    padding: 13,
   },
   cardGranted: {
-    backgroundColor: PALETTE.cardGrantedBg,
     borderColor: PALETTE.cardGrantedBorder,
   },
   cardBlocked: {
     borderColor: PALETTE.cardBlockedBorder,
   },
-  cardTopRow: {
+  cardMainRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 10,
   },
   cardIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(29, 99, 235, 0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.22)',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(139, 92, 246, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
+    marginTop: 1,
   },
   cardIconBoxGranted: {
-    backgroundColor: 'rgba(16, 185, 129, 0.14)',
-    borderColor: 'rgba(52, 211, 153, 0.28)',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
-  cardTitleBlock: {
+  cardInfo: {
     flex: 1,
-    marginRight: 8,
   },
-  cardTitleRow: {
+  cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
+    justifyContent: 'space-between',
+    marginBottom: 3,
   },
   cardTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontFamily: Fonts.family.bold,
     color: PALETTE.textPrimary,
   },
-  cardUsageTag: {
-    fontSize: 11,
-    fontFamily: Fonts.family.medium,
-    color: PALETTE.orangeSoft,
-    marginTop: 2,
-  },
-  reqBadge: {
+  statusBadge: {
+    borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
-  reqBadgeRequired: {
-    backgroundColor: 'rgba(249, 115, 22, 0.15)',
-  },
-  reqBadgeOptional: {
-    backgroundColor: 'rgba(148, 163, 184, 0.14)',
-  },
-  reqBadgeText: {
-    fontSize: 10,
-    fontFamily: Fonts.family.semiBold,
-    letterSpacing: 0.3,
-  },
-  reqBadgeTextRequired: {
-    color: PALETTE.orangeSoft,
-  },
-  reqBadgeTextOptional: {
-    color: PALETTE.textSecondary,
-  },
-  statusPill: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
-  statusPillText: {
-    fontSize: 11,
+  statusBadgeText: {
+    fontSize: 10.5,
     fontFamily: Fonts.family.semiBold,
   },
   cardDescription: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: Fonts.family.regular,
     color: PALETTE.textSecondary,
-    lineHeight: 18,
-    marginBottom: 10,
+    lineHeight: 16.5,
   },
-  helperNotice: {
-    fontSize: 12,
-    fontFamily: Fonts.family.medium,
+  cardActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  reqTagWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  requiredPill: {
+    backgroundColor: 'rgba(245, 158, 11, 0.14)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  requiredPillText: {
+    fontSize: 10,
+    fontFamily: Fonts.family.semiBold,
     color: PALETTE.amber,
-    lineHeight: 17,
-    marginBottom: 10,
   },
-  cardFooter: {
+  optionalText: {
+    fontSize: 11,
+    fontFamily: Fonts.family.regular,
+    color: PALETTE.textMuted,
+  },
+  grantedPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  enabledBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  enabledConfirmText: {
-    fontSize: 12.5,
+  grantedPillText: {
+    fontSize: 11.5,
     fontFamily: Fonts.family.semiBold,
     color: PALETTE.emerald,
   },
   unavailableText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontFamily: Fonts.family.medium,
     color: PALETTE.textMuted,
   },
-  enableBtn: {
-    backgroundColor: PALETTE.electricBlue,
-    borderRadius: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    minWidth: 96,
+  actionBtn: {
+    backgroundColor: '#7C3AED',
+    borderRadius: 9,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    minWidth: 78,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  settingsBtn: {
-    backgroundColor: 'rgba(249, 115, 22, 0.85)',
+  settingsActionBtn: {
+    backgroundColor: '#334155',
   },
-  enableBtnText: {
-    fontSize: 13,
+  actionBtnText: {
+    fontSize: 12.5,
     fontFamily: Fonts.family.bold,
     color: '#FFFFFF',
   },
   footer: {
     paddingTop: 10,
   },
-  missingRequiredNote: {
-    fontSize: 11.5,
-    fontFamily: Fonts.family.medium,
-    color: PALETTE.orangeSoft,
-    textAlign: 'center',
-    marginBottom: 8,
-    lineHeight: 16,
-  },
   continueBtn: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: '#7C3AED',
-    borderWidth: 1,
-    borderColor: 'rgba(221, 214, 254, 0.35)',
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: '#4013C7',
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#2E087A',
-    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+    shadowColor: '#4013C7',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
-    shadowRadius: 12,
+    shadowRadius: 8,
+  },
+  continueBtnPrimary: {
+    flex: 1.4,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: '#4013C7',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#4013C7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
   },
   continueBtnDisabled: {
-    opacity: 0.72,
+    opacity: 0.65,
   },
   continueBtnText: {
-    fontSize: 15.5,
-    fontFamily: Fonts.family.bold,
+    fontSize: 14,
+    fontFamily: Fonts.family.semiBold,
     color: '#FFFFFF',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   dualButtonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   skipBtn: {
     flex: 1,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: '#1C1A36',
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.25)',
+    borderColor: '#334155',
     justifyContent: 'center',
     alignItems: 'center',
   },
   skipBtnText: {
-    fontSize: 14.5,
-    fontFamily: Fonts.family.bold,
+    fontSize: 14,
+    fontFamily: Fonts.family.semiBold,
     color: '#94A3B8',
-  },
-  allowAllBtn: {
-    flex: 1.3,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: '#7C3AED',
-    borderWidth: 1,
-    borderColor: 'rgba(221, 214, 254, 0.35)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#2E087A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-  },
-  allowAllBtnDisabled: {
-    opacity: 0.72,
-  },
-  allowAllBtnText: {
-    fontSize: 15,
-    fontFamily: Fonts.family.bold,
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
   },
   footerHint: {
     fontSize: 11.5,

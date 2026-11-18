@@ -21,6 +21,7 @@ import Svg, {
 import Text from '../common/AppText';
 import TextInput from '../common/AppTextInput';
 import KeyboardAwareScrollView from '../common/KeyboardAwareScrollView';
+import BrandGradientBackground from '../common/BrandGradientBackground';
 import { Fonts } from '../../styles/Fonts';
 import { useAuth } from '../../context/AuthContext';
 import { useGeminiLiveVoice } from '../../hooks/useGeminiLiveVoice';
@@ -33,10 +34,6 @@ import {
   PauseIcon,
   PlayIcon,
   XIcon,
-  UserIcon,
-  BuildingIcon,
-  LocationPinIcon,
-  MailIcon,
   RefreshIcon,
 } from '../../icons/Icons';
 import {
@@ -620,13 +617,6 @@ export default function SpeechRegistrationModal({ visible, onComplete }) {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Header Badge */}
-            <View style={styles.badgeRow}>
-              <View style={styles.aiBadge}>
-                <SparklesIcon size={14} color="#C084FC" />
-                <Text style={styles.aiBadgeText}>AI VOICE REGISTRATION</Text>
-              </View>
-            </View>
 
             <Text style={styles.title}>Complete Your Profile</Text>
             <Text style={styles.subtitle}>
@@ -645,10 +635,8 @@ export default function SpeechRegistrationModal({ visible, onComplete }) {
                 </View>
               </View>
               <View style={styles.heroVoiceTextWrap}>
-                <Text style={styles.heroVoiceTitle}>Tap to Speak Details</Text>
-                <Text style={styles.heroVoiceSubtitle}>
-                  Say: "I am [Name] from [Company], working as [Role] in [City]"
-                </Text>
+                <Text style={styles.heroVoiceTitle}>Tap To Fill The Details</Text>
+               
               </View>
               <View style={styles.heroVoiceStartBtn}>
                 <SparklesIcon size={14} color="#FFFFFF" />
@@ -665,104 +653,62 @@ export default function SpeechRegistrationModal({ visible, onComplete }) {
             ) : null}
 
             {/* Form Fields Header */}
-            <View style={styles.formHeaderRow}>
+            {/* <View style={styles.formHeaderRow}>
               <View>
                 <Text style={styles.formHeaderTitle}>Registration Information</Text>
                 <Text style={styles.formHeaderHint}>Auto-populated via voice or manual</Text>
               </View>
-              <TouchableOpacity
-                style={styles.resetHeaderBtn}
-                onPress={handleReset}
-                activeOpacity={0.7}
-              >
-                <RefreshIcon size={12} color="#A78BFA" />
-                <Text style={styles.resetHeaderBtnText}>Reset</Text>
-              </TouchableOpacity>
-            </View>
+            </View> */}
 
             {/* 1. Full Name */}
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <UserIcon size={14} color="#A78BFA" />
-                <Text style={styles.label}>Full Name</Text>
-                <Text style={styles.requiredMark}>*</Text>
-              </View>
+            <View style={styles.inputCard}>
               <TextInput
-                style={styles.input}
-                placeholder="Enter your full name"
+                style={styles.textInput}
+                placeholder="Full Name"
                 placeholderTextColor="#64748B"
                 value={name}
                 onChangeText={setName}
                 autoCapitalize="words"
+                autoCorrect={false}
               />
             </View>
 
             {/* 2. Company Name */}
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <BuildingIcon size={14} color="#A78BFA" />
-                <Text style={styles.label}>Company Name</Text>
-                <Text style={styles.requiredMark}>*</Text>
-              </View>
+            <View style={styles.inputCard}>
               <TextInput
-                style={styles.input}
-                placeholder="Enter company or business name"
+                style={styles.textInput}
+                placeholder="Company Name"
                 placeholderTextColor="#64748B"
                 value={companyName}
                 onChangeText={setCompanyName}
                 autoCapitalize="words"
+                autoCorrect={false}
               />
             </View>
 
             {/* 3. Role / Designation */}
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <UserIcon size={14} color="#A78BFA" />
-                <Text style={styles.label}>Role / Designation</Text>
-                <Text style={styles.requiredMark}>*</Text>
-              </View>
+            <View style={styles.inputCard}>
               <TextInput
-                style={styles.input}
-                placeholder="e.g. Sales Manager, Founder, Director"
+                style={styles.textInput}
+                placeholder="Designation / Role"
                 placeholderTextColor="#64748B"
                 value={role}
                 onChangeText={setRole}
                 autoCapitalize="words"
+                autoCorrect={false}
               />
             </View>
 
             {/* 4. City */}
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <LocationPinIcon size={14} color="#A78BFA" />
-                <Text style={styles.label}>City</Text>
-                <Text style={styles.requiredMark}>*</Text>
-              </View>
+            <View style={styles.inputCard}>
               <TextInput
-                style={styles.input}
-                placeholder="Enter your city (e.g. Mumbai, Bengaluru)"
+                style={styles.textInput}
+                placeholder="City"
                 placeholderTextColor="#64748B"
                 value={city}
                 onChangeText={setCity}
                 autoCapitalize="words"
-              />
-            </View>
-
-            {/* 5. Email (Optional) */}
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <MailIcon size={14} color="#A78BFA" />
-                <Text style={styles.label}>Email Address</Text>
-                <Text style={styles.optionalBadge}>Optional</Text>
-              </View>
-              <TextInput
-                style={styles.input}
-                placeholder="name@company.com (Optional)"
-                placeholderTextColor="#64748B"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
 
@@ -783,6 +729,7 @@ export default function SpeechRegistrationModal({ visible, onComplete }) {
                 disabled={isSubmitting}
                 activeOpacity={0.85}
               >
+                <BrandGradientBackground id="speech_submit_btn_grad" borderRadius={15} />
                 {isSubmitting ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
@@ -1107,6 +1054,7 @@ export default function SpeechRegistrationModal({ visible, onComplete }) {
                     onPress={handleFinishVoice}
                     activeOpacity={0.85}
                   >
+                    <BrandGradientBackground id="speech_voice_finish_grad" borderRadius={14} />
                     <Text style={styles.voiceFinishBtnText}>Finish</Text>
                   </TouchableOpacity>
                 </View>
@@ -1344,41 +1292,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: Fonts.family.regular,
   },
-  inputGroup: {
-    marginBottom: 14,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  label: {
-    color: '#CBD5E1',
-    fontSize: 12.5,
-    fontFamily: Fonts.family.medium,
-    marginLeft: 6,
-  },
-  requiredMark: {
-    color: '#EF4444',
-    fontSize: 12,
-    marginLeft: 3,
-  },
-  optionalBadge: {
-    color: '#64748B',
-    fontSize: 11,
-    fontFamily: Fonts.family.regular,
-    marginLeft: 6,
-  },
-  input: {
-    backgroundColor: '#181A33',
+  inputCard: {
+    backgroundColor: '#1B1C2E',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 18 : 18,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#2D3054',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    color: '#FFFFFF',
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  textInput: {
+    color: '#ADADAD',
     fontSize: 14,
     fontFamily: Fonts.family.regular,
+    padding: 0,
+    margin: 0,
   },
   actionBtnRow: {
     flexDirection: 'row',
@@ -1407,13 +1337,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#4013C7',
     borderRadius: 15,
     paddingVertical: 14,
+    overflow: 'hidden',
     ...Platform.select({
       android: { elevation: 4 },
       ios: {
-        shadowColor: '#7C3AED',
+        shadowColor: '#4013C7',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.35,
         shadowRadius: 8,
@@ -1636,7 +1567,8 @@ const styles = StyleSheet.create({
     flex: 1.2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#4013C7',
+    overflow: 'hidden',
     borderRadius: 14,
     paddingVertical: 12,
   },

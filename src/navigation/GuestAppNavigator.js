@@ -14,7 +14,7 @@ import LeadCaptureSuccessScreen from '../screens/guest/LeadCaptureSuccessScreen'
 import EventContactsScreen from '../screens/guest/EventContactsScreen';
 import GuestAccountScreen from '../screens/guest/GuestAccountScreen';
 import PermissionSetupScreen from '../screens/system/PermissionSetupScreen';
-import SpeechRegistrationModal from '../components/auth/SpeechRegistrationModal';
+import SpeechRegistrationScreen from '../screens/auth/SpeechRegistrationScreen';
 import { getPermissionSetupKey } from '../config/rolePermissions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -64,6 +64,12 @@ const GuestAppNavigator = () => {
     return <SplashScreen onAnimationComplete={() => setSplashDone(true)} />;
   }
 
+  const needsSpeechRegistration =
+    isAuthenticated &&
+    isGuest &&
+    user?.isProfileComplete !== true &&
+    (!user?.name || user.name.trim().length === 0 || user.name.startsWith('Guest_'));
+
   return (
     <View style={styles.root}>
       <NavigationContainer>
@@ -71,7 +77,9 @@ const GuestAppNavigator = () => {
           initialRouteName={
             isAuthenticated && isGuest
               ? hasCompletedPermissionSetup
-                ? 'Main'
+                ? needsSpeechRegistration
+                  ? 'SpeechRegistration'
+                  : 'Main'
                 : 'PermissionSetupInitial'
               : hasSeenOnboarding
               ? 'Login'
@@ -79,19 +87,21 @@ const GuestAppNavigator = () => {
           }
           screenOptions={{ headerShown: false }}
         >
-          {isAuthenticated && isGuest && !hasCompletedPermissionSetup ? (
-            <Stack.Screen name="PermissionSetupInitial">
-              {(props) => (
-                <PermissionSetupScreen
-                  {...props}
-                  onComplete={() => {
-                    setHasCompletedPermissionSetup(true);
-                  }}
-                />
-              )}
-            </Stack.Screen>
-          ) : isAuthenticated && isGuest ? (
+          {isAuthenticated && isGuest ? (
             <>
+              {!hasCompletedPermissionSetup && (
+                <Stack.Screen name="PermissionSetupInitial">
+                  {(props) => (
+                    <PermissionSetupScreen
+                      {...props}
+                      onComplete={() => {
+                        setHasCompletedPermissionSetup(true);
+                      }}
+                    />
+                  )}
+                </Stack.Screen>
+              )}
+              <Stack.Screen name="SpeechRegistration" component={SpeechRegistrationScreen} />
               <Stack.Screen name="Main" component={GuestTabNavigator} />
               <Stack.Screen name="PermissionSetup">
                 {(props) => (
@@ -148,15 +158,6 @@ const GuestAppNavigator = () => {
           )}
         </Stack.Navigator>
       </NavigationContainer>
-      {isAuthenticated &&
-        isGuest &&
-        user?.isProfileComplete !== true &&
-        (!user?.name || user.name.trim().length === 0 || user.name.startsWith('Guest_')) && (
-          <SpeechRegistrationModal
-            visible={true}
-            onComplete={() => {}}
-          />
-        )}
     </View>
   );
 };

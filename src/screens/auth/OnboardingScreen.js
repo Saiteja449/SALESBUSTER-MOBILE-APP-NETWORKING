@@ -16,6 +16,7 @@ import Svg, {
   Rect,
   Stop,
   Path,
+  Text as SvgText,
 } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Text from '../../components/common/AppText';
@@ -67,8 +68,8 @@ const OnboardingScreen = ({ navigation, onComplete }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef(null);
 
-  // Exact proportion from required UI mockup: Hero occupies top ~68%
-  const heroHeight = Math.round(height * 0.68);
+  // Hero occupies top ~60% (shifted textSection 8% above from 0.68)
+  const heroHeight = Math.round(height * 0.72);
   const nextBtnWidth = 118;
   const nextBtnHeight = 44;
   const continueBtnWidth = width - 48;
@@ -113,35 +114,81 @@ const OnboardingScreen = ({ navigation, onComplete }) => {
   const renderItem = ({ item }) => {
     return (
       <View style={[styles.slideContainer, { width, height }]}>
-        {/* Top Hero Graphic */}
-        <View style={[styles.heroWrapper, { height: heroHeight, width }]}>
+        {/* Text Section at the Top */}
+        <View
+          style={[
+            styles.textSection,
+            {
+              paddingTop:
+                (Platform.OS === 'android' ? (StatusBar.currentHeight || 20) : insets.top) + 42,
+            },
+          ]}
+        >
+          <Text style={styles.titleLine1}>{item.titleLine1}</Text>
+          <View style={styles.titleLine2Wrap}>
+            <Svg height={34} width={width} viewBox={`0 0 ${width} 34`}>
+              <Defs>
+                <LinearGradient id={`title2_grad_${item.id}`} x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0" stopColor="#4013C7" />
+                  <Stop offset="1" stopColor="#9C40FA" />
+                </LinearGradient>
+              </Defs>
+              <SvgText
+                fill={`url(#title2_grad_${item.id})`}
+                fontSize={23}
+                fontFamily={Fonts.family.bold}
+                fontWeight="700"
+                x={width / 2}
+                y="24"
+                textAnchor="middle"
+                letterSpacing="-0.2"
+              >
+                {item.titleLine2}
+              </SvgText>
+            </Svg>
+          </View>
+          <Text style={styles.subtitle}>{item.subtitle}</Text>
+        </View>
+
+        {/* Hero Graphic at the Bottom */}
+        <View style={[styles.heroWrapper, { width, flex: 1 }]}>
           <Image
             source={item.image}
             style={styles.heroImage}
             resizeMode="cover"
           />
-          {/* Seamless gradient fade from lower torso into dark background */}
+
+          {/* Top subtle fade from dark background into graphic */}
+          <Svg
+            style={styles.topFadeOverlay}
+            width={width}
+            height={50}
+          >
+            <Defs>
+              <LinearGradient id={`top_fade_${item.id}`} x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={BG_COLOR} stopOpacity="1" />
+                <Stop offset="0.6" stopColor={BG_COLOR} stopOpacity="0.5" />
+                <Stop offset="1" stopColor={BG_COLOR} stopOpacity="0" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width={width} height={50} fill={`url(#top_fade_${item.id})`} />
+          </Svg>
+
+          {/* Bottom gradient fade behind navigation buttons */}
           <Svg
             style={styles.fadeOverlay}
             width={width}
-            height={90}
+            height={110}
           >
             <Defs>
               <LinearGradient id={`fade_${item.id}`} x1="0" y1="0" x2="0" y2="1">
                 <Stop offset="0" stopColor={BG_COLOR} stopOpacity="0" />
-                <Stop offset="0.65" stopColor={BG_COLOR} stopOpacity="0.8" />
+                <Stop offset="0.65" stopColor={BG_COLOR} stopOpacity="0.85" />
                 <Stop offset="1" stopColor={BG_COLOR} stopOpacity="1" />
               </LinearGradient>
             </Defs>
-            <Rect x="0" y="0" width={width} height={90} fill={`url(#fade_${item.id})`} />
+            <Rect x="0" y="0" width={width} height={110} fill={`url(#fade_${item.id})`} />
           </Svg>
-        </View>
-
-        {/* Text Section (starts at ~70% of screen height) */}
-        <View style={styles.textSection}>
-          <Text style={styles.titleLine1}>{item.titleLine1}</Text>
-          <Text style={styles.titleLine2}>{item.titleLine2}</Text>
-          <Text style={styles.subtitle}>{item.subtitle}</Text>
         </View>
       </View>
     );
@@ -243,7 +290,7 @@ const OnboardingScreen = ({ navigation, onComplete }) => {
               >
                 <Defs>
                   <LinearGradient id="next_pill_grad" x1="0" y1="0" x2="1" y2="0">
-                    <Stop offset="0" stopColor="#5013C7" />
+                    <Stop offset="0" stopColor="#4013C7" />
                     <Stop offset="1" stopColor="#9C40FA" />
                   </LinearGradient>
                 </Defs>
@@ -282,7 +329,7 @@ const OnboardingScreen = ({ navigation, onComplete }) => {
               >
                 <Defs>
                   <LinearGradient id="cont_pill_grad" x1="0" y1="0" x2="1" y2="0">
-                    <Stop offset="0" stopColor="#5013C7" />
+                    <Stop offset="0" stopColor="#4013C7" />
                     <Stop offset="1" stopColor="#9C40FA" />
                   </LinearGradient>
                 </Defs>
@@ -345,16 +392,24 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  topFadeOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+  },
   fadeOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
+    zIndex: 2,
   },
   textSection: {
     alignItems: 'center',
     paddingHorizontal: 24,
-    marginTop: 8,
+    marginBottom: 8,
   },
   titleLine1: {
     color: '#FFFFFF',
@@ -362,6 +417,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.bold,
     textAlign: 'center',
     letterSpacing: -0.2,
+  },
+  titleLine2Wrap: {
+    height: 34,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 3,
   },
   titleLine2: {
     color: '#8B5CF6',

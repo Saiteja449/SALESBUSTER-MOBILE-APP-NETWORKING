@@ -31,51 +31,48 @@ const PERMISSION_CATALOG = {
     icon: 'camera',
     isSpecialSetting: false,
     required: false,
-    usageTag: 'Used On-Demand Only',
-    description:
-      'Used strictly to photograph attendee business cards and take lead selfies during events. Never accessed in the background.',
-    rationaleTitle: 'Camera Access for Attendee Capture',
+    description: 'Used to capture attendee selfies and business card photos.',
+    rationaleTitle: 'Camera Access',
     rationaleMessage:
-      'SalesBuster needs camera access so you can take attendee selfies and photograph business cards to attach to your event leads. Photos are stored securely in your workspace and never shared without your permission.',
+      'Allows you to capture attendee photos and business cards and attach them to leads.',
   },
+
   microphone: {
     id: 'microphone',
     title: 'Microphone',
     icon: 'microphone',
     isSpecialSetting: false,
     required: false,
-    usageTag: 'Active Only While Recording',
-    description:
-      'Powers on-demand AI voice capture to transcribe conversation notes and extract contact details when you tap the mic.',
-    rationaleTitle: 'Microphone Access for Voice Notes',
+    description: 'Used for voice recording, AI transcription, and contact extraction.',
+    rationaleTitle: 'Microphone Access',
     rationaleMessage:
-      'SalesBuster needs microphone access to record your voice notes and extract attendee contact details using AI speech analysis. Audio is only recorded while you actively open or use voice capture.',
+      'Allows you to record voice notes and use AI to extract conversation details and contact information.',
   },
+
   notifications: {
     id: 'notifications',
     title: 'Notifications',
     icon: 'notifications',
     isSpecialSetting: false,
     required: false,
-    usageTag: 'Follow-ups & Sync Status',
-    description:
-      'Delivers timely follow-up reminders, attendee lead sync confirmations, and event updates directly to your screen.',
-    rationaleTitle: 'Notification Alerts',
+    usageTag: 'Reminders & Updates',
+    description: 'Provides follow-up reminders, lead sync updates, and event alerts.',
+    rationaleTitle: 'Notification Access',
     rationaleMessage:
-      'SalesBuster sends notifications to keep you informed of scheduled attendee follow-ups, cloud lead synchronization, and important event alerts.',
+      'Keeps you updated with follow-up reminders, lead synchronization, and important alerts.',
   },
+
   contacts: {
     id: 'contacts',
     title: 'Contacts',
     icon: 'contacts',
     isSpecialSetting: false,
     required: false,
-    usageTag: 'Local Device Address Book',
-    description:
-      'Enables one-tap saving of verified event leads into your phone contacts book and prevents duplicate attendee entries.',
-    rationaleTitle: 'Contacts Access for Lead Saving',
+    usageTag: 'Save Leads to Contacts',
+    description: 'Used to save verified leads directly to your phone contacts.',
+    rationaleTitle: 'Contacts Access',
     rationaleMessage:
-      'SalesBuster requests access to contacts so you can save captured event leads directly into your phone address book with a single tap.',
+      'Allows you to save captured leads to your phone contacts and avoid duplicate entries.',
   },
 };
 

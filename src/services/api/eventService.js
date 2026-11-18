@@ -2,7 +2,11 @@ import axios from 'axios';
 import { Linking, Alert, Platform, NativeModules } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS, getFullMediaUrl } from '../../utils/constants';
-import { getFriendlyErrorMessage } from '../../utils/formatters';
+import {
+  getFriendlyErrorMessage,
+  shortenUrl,
+  appendBusinessInfoLink,
+} from '../../utils/formatters';
 import { shareToWhatsAppSmart } from '../native/DefaultDialer';
 
 const toFriendlyError = (err, fallback) => {
@@ -104,7 +108,11 @@ const normalizeAttachment = (att) => {
   };
 };
 
-export const WHATSAPP_WATERMARK = '-powered by salesbusterAI';
+export const WATERMARK_SEPARATOR = '----------------------------------';
+export const WATERMARK_TAGLINE = '-Smart networking through';
+export const WATERMARK_URL = 'salesbuster.ai';
+
+export const WHATSAPP_WATERMARK = `${WATERMARK_SEPARATOR}\n${WATERMARK_TAGLINE}\n${WATERMARK_URL}`;
 
 /**
  * Appends the standard SalesBuster AI watermark to WhatsApp messages if not already present.
@@ -112,10 +120,23 @@ export const WHATSAPP_WATERMARK = '-powered by salesbusterAI';
 export const appendWhatsAppWatermark = (text = '') => {
   const clean = (text || '').trim();
   if (!clean) return WHATSAPP_WATERMARK;
-  // If the text already has the watermark (case-insensitive), don't duplicate
-  if (clean.includes(WHATSAPP_WATERMARK) || /powered\s+by\s+salesbusterai/i.test(clean)) {
+
+  // If text already has the full formatted watermark, return as is
+  if (clean.includes(WHATSAPP_WATERMARK)) {
     return clean;
   }
+
+  // If text has the legacy single-line watermark, upgrade it to the new 3-part watermark
+  if (clean.includes(WATERMARK_TAGLINE)) {
+    return clean.replace(WATERMARK_TAGLINE, WHATSAPP_WATERMARK);
+  }
+  if (/smart\s+networking\s+through\s+salesbuster\s+ai/i.test(clean)) {
+    return clean.replace(
+      /[-–—]?\s*smart\s+networking\s+through\s+salesbuster\s+ai/i,
+      WHATSAPP_WATERMARK
+    );
+  }
+
   return `${clean}\n\n${WHATSAPP_WATERMARK}`;
 };
 
@@ -547,12 +568,17 @@ export const eventService = {
       throw new Error('Phone number is required to send WhatsApp message.');
     }
 
-    // Ensure sharable link is included in message text if passed in meta
+    // Ensure sharable link is formatted with professional business info tag if passed in meta
     let finalMessage = messageText || '';
-    if (contactMeta?.sharableLink && !finalMessage.includes(contactMeta.sharableLink)) {
-      finalMessage = finalMessage.trim()
-        ? `${finalMessage.trim()}\n\n${contactMeta.sharableLink}`
-        : contactMeta.sharableLink;
+    if (contactMeta?.sharableLink) {
+      finalMessage = appendBusinessInfoLink(
+        finalMessage,
+        contactMeta.sharableLink,
+        {
+          companyName: contactMeta.companyName || contactMeta.senderCompany,
+          fileName: contactMeta.eventFileName,
+        }
+      );
     }
     finalMessage = appendWhatsAppWatermark(finalMessage);
 
@@ -622,6 +648,21 @@ export const eventService = {
           };
         }
 
+        // Secondary media fallback: Attempt direct ACTION_SEND if smart sync didn't launch
+        if (DefaultDialer?.shareToWhatsAppWithFiles) {
+          try {
+            await DefaultDialer.shareToWhatsAppWithFiles(phone, finalMessage, singleImageAttachment);
+            return {
+              success: true,
+              phone: intlPhone,
+              sharedFilesCount: 1,
+              mode: 'action_send_media',
+            };
+          } catch (filesErr) {
+            console.warn('[eventService] shareToWhatsAppWithFiles secondary fallback error:', filesErr);
+          }
+        }
+
         await this.openWhatsAppDirect(phone, finalMessage);
         return {
           success: true,
@@ -648,5 +689,13 @@ export const eventService = {
         warning: nativeErr?.message || 'Could not attach image due to file permissions.',
       };
     }
+  },
+
+  /**
+   * Shortens a URL using SalesBuster in-house URL shortener
+   */
+  async shortenUrl(rawUrl, token) {
+    const activeToken = await resolveToken(token);
+    return shortenUrl(rawUrl, activeToken);
   },
 };

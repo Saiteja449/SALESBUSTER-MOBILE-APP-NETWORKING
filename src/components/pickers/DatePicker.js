@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Text from '../common/AppText';
+import BrandGradientBackground from '../common/BrandGradientBackground';
 import {
   BackIcon,
   CalendarIcon,
@@ -546,14 +547,14 @@ const DatePicker = ({
                 disabled={!canConfirm}
                 style={[
                   styles.confirmBtn,
-                  { backgroundColor: palette.primary },
                   !canConfirm && { opacity: 0.45 },
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel="Confirm date"
                 accessibilityState={{ disabled: !canConfirm }}
               >
-                <Text style={[styles.confirmText, { color: palette.primaryText }]}>
+                <BrandGradientBackground id="date_picker_confirm_grad" borderRadius={12} />
+                <Text style={styles.confirmText}>
                   Confirm
                 </Text>
               </TouchableOpacity>
@@ -768,10 +769,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 11,
     borderRadius: 12,
+    backgroundColor: '#4013C7',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   confirmText: {
     fontSize: Fonts.sizes.sm,
     fontFamily: Fonts.family.bold,
+    color: '#FFFFFF',
   },
   triggerBtn: {
     flexDirection: 'row',

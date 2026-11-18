@@ -4,8 +4,6 @@ import {
   Animated,
   Easing,
   Keyboard,
-  Platform,
-  Pressable,
   StatusBar,
   StyleSheet,
   TouchableOpacity,
@@ -13,72 +11,46 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, {
-  Circle,
-  Defs,
-  LinearGradient,
-  Path,
-  RadialGradient,
-  Rect,
-  Stop,
-} from 'react-native-svg';
 import Text from '../../components/common/AppText';
 import TextInput from '../../components/common/AppTextInput';
 import KeyboardAwareScrollView from '../../components/common/KeyboardAwareScrollView';
 import { useAuth } from '../../context/AuthContext';
 import {
   AlertCircleIcon,
+  BackIcon,
   CheckIcon,
+  ChevronDownIcon,
+  EditIcon,
   PhoneIcon,
-  SparklesIcon,
 } from '../../icons/Icons';
 import { Fonts } from '../../styles/Fonts';
-import { Spacing } from '../../styles/Spacing';
 import { SalesBusterLogo } from '../../components/common/BrandLogo';
-import SpeechRegistrationModal from '../../components/auth/SpeechRegistrationModal';
+import BrandGradientBackground from '../../components/common/BrandGradientBackground';
 
 const PALETTE = {
-  bgDeep: 'rgba(4, 5, 15)',
-  bgStatusBar: '#04050F',
-  cardBg: '#17162A',
-  cardBorder: '#363252',
-  inputBg: '#1B1C2E',
-  inputBgFocused: '#1B1C2E',
+  bgDeep: '#0A0D14',
+  bgStatusBar: '#0A0D14',
+  cardBg: '#111827',
+  cardBorder: 'rgba(255, 255, 255, 0.08)',
+  inputBg: '#141A29',
+  inputBgFocused: '#161F36',
   inputBorder: 'rgba(255, 255, 255, 0.08)',
   inputBorderFocused: '#8B5CF6',
-  inputBorderError: '#F87171',
-  electricBlue: '#7C3AED',
-  electricBlueBright: '#A78BFA',
-  purpleAccent: '#A855F7',
+  inputBorderError: '#EF4444',
+  primaryAccent: '#7C3AED',
+  purpleBright: '#A78BFA',
   purpleSoft: '#C4B5FD',
-  textPrimary: '#F8FAFC',
+  textPrimary: '#FFFFFF',
   textSecondary: '#94A3B8',
   textMuted: '#64748B',
-  errorText: '#FCA5A5',
-  errorBg: 'rgba(239, 68, 68, 0.14)',
-  errorBorder: 'rgba(248, 113, 113, 0.4)',
-  successText: '#6EE7B7',
-  successBg: 'rgba(16, 185, 129, 0.14)',
+  textPlaceholder: '#475569',
+  errorText: '#F87171',
+  errorBg: 'rgba(239, 68, 68, 0.12)',
+  errorBorder: 'rgba(239, 68, 68, 0.28)',
+  emerald: '#10B981',
+  emeraldBg: 'rgba(16, 185, 129, 0.12)',
+  emeraldBorder: 'rgba(16, 185, 129, 0.3)',
 };
-
-const EditIcon = ({ size = 15, color = PALETTE.purpleAccent }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
 
 export default function LoginScreen({ navigation }) {
   const { sendOtp, verifyOtp } = useAuth();
@@ -89,15 +61,14 @@ export default function LoginScreen({ navigation }) {
   // Step 1: 'phone' | Step 2: 'otp'
   const [step, setStep] = useState('phone');
   const [phone, setPhone] = useState('');
+  const [isPhoneFocused, setIsPhoneFocused] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '']);
+  const [focusedOtpIndex, setFocusedOtpIndex] = useState(null);
   const [phoneError, setPhoneError] = useState('');
   const [otpError, setOtpError] = useState('');
   const [serverError, setServerError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-
-  // Speech Profile Registration Modal state
-  const [showSpeechModal, setShowSpeechModal] = useState(false);
 
   // Refs for 4-digit OTP text inputs
   const otpInputRefs = [
@@ -109,40 +80,45 @@ export default function LoginScreen({ navigation }) {
 
   // Animations
   const headerOpacity = useRef(new Animated.Value(0)).current;
-  const headerTranslateY = useRef(new Animated.Value(12)).current;
+  const headerTranslateY = useRef(new Animated.Value(10)).current;
   const formOpacity = useRef(new Animated.Value(0)).current;
-  const formTranslateY = useRef(new Animated.Value(16)).current;
+  const formTranslateY = useRef(new Animated.Value(14)).current;
 
   useEffect(() => {
+    headerOpacity.setValue(0);
+    headerTranslateY.setValue(10);
+    formOpacity.setValue(0);
+    formTranslateY.setValue(14);
+
     Animated.parallel([
       Animated.timing(headerOpacity, {
         toValue: 1,
-        duration: 400,
+        duration: 350,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(headerTranslateY, {
         toValue: 0,
-        duration: 400,
+        duration: 350,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(formOpacity, {
         toValue: 1,
-        duration: 440,
+        duration: 380,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(formTranslateY, {
         toValue: 0,
-        duration: 440,
+        duration: 380,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
     ]).start();
-  }, [formOpacity, formTranslateY, headerOpacity, headerTranslateY]);
+  }, [step, formOpacity, formTranslateY, headerOpacity, headerTranslateY]);
 
-  // Resend Countdown Timer
+  // Resend Countdown Timer (45 seconds)
   useEffect(() => {
     let interval = null;
     if (resendCooldown > 0) {
@@ -153,8 +129,14 @@ export default function LoginScreen({ navigation }) {
     return () => interval && clearInterval(interval);
   }, [resendCooldown]);
 
+  const formatMaskedPhone = rawPhone => {
+    if (!rawPhone) return '+91 ••••• •••••';
+    const clean = rawPhone.replace(/\D/g, '').slice(-10);
+    if (clean.length < 10) return `+91 ${clean}`;
+    return `+91 ${clean.slice(0, 2)}••• •••${clean.slice(-2)}`;
+  };
+
   const handlePhoneChange = text => {
-    // Only accept numeric digits, up to 10 characters
     const cleaned = text.replace(/\D/g, '').slice(0, 10);
     setPhone(cleaned);
     if (phoneError) setPhoneError('');
@@ -180,6 +162,7 @@ export default function LoginScreen({ navigation }) {
       if (result.success) {
         setStep('otp');
         setOtp(['', '', '', '']);
+        setFocusedOtpIndex(0);
         setResendCooldown(45);
         setTimeout(() => {
           otpInputRefs[0].current?.focus();
@@ -195,7 +178,38 @@ export default function LoginScreen({ navigation }) {
   };
 
   const handleOtpDigitChange = (index, value) => {
-    const digit = value.replace(/\D/g, '').slice(-1);
+    const cleaned = value.replace(/\D/g, '');
+    if (!cleaned) {
+      const updatedOtp = [...otp];
+      updatedOtp[index] = '';
+      setOtp(updatedOtp);
+      if (otpError) setOtpError('');
+      if (serverError) setServerError('');
+      return;
+    }
+
+    // Support 4-digit paste
+    if (cleaned.length > 1) {
+      const digits = cleaned.slice(0, 4).split('');
+      const updatedOtp = [...otp];
+      digits.forEach((d, i) => {
+        if (i < 4) updatedOtp[i] = d;
+      });
+      setOtp(updatedOtp);
+      if (otpError) setOtpError('');
+      if (serverError) setServerError('');
+
+      if (digits.length === 4) {
+        otpInputRefs[3].current?.focus();
+        handleVerifyOtp(digits.join(''));
+      } else {
+        otpInputRefs[Math.min(digits.length, 3)].current?.focus();
+      }
+      return;
+    }
+
+    // Single digit input
+    const digit = cleaned.slice(-1);
     const updatedOtp = [...otp];
     updatedOtp[index] = digit;
     setOtp(updatedOtp);
@@ -219,7 +233,7 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  const handleVerifyOtp = async (codeToVerify) => {
+  const handleVerifyOtp = async codeToVerify => {
     if (isLoading) return;
     Keyboard.dismiss();
 
@@ -235,14 +249,7 @@ export default function LoginScreen({ navigation }) {
 
     try {
       const result = await verifyOtp(phone, fullOtp);
-      if (result.success) {
-        if (!result.isProfileComplete) {
-          // New user or incomplete profile: Show Speech AI Modal
-          setShowSpeechModal(true);
-        }
-        // If profile was already complete, AuthContext automatically authenticated the user
-        // and GuestAppNavigator routes directly to 'Main' — speech modal never shows!
-      } else {
+      if (!result.success) {
         setServerError(result.message || 'Incorrect verification code.');
       }
     } catch (_err) {
@@ -252,8 +259,12 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  const handleSpeechRegistrationComplete = () => {
-    setShowSpeechModal(false);
+  const handleBackToPhone = () => {
+    setStep('phone');
+    setOtp(['', '', '', '']);
+    setOtpError('');
+    setServerError('');
+    setFocusedOtpIndex(null);
   };
 
   return (
@@ -268,13 +279,30 @@ export default function LoginScreen({ navigation }) {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: Math.max(insets.top + (isCompact ? 16 : 28), 24),
-            paddingBottom: Math.max(insets.bottom + 24, 32),
+            paddingTop: Math.max(insets.top + (isCompact ? 12 : 20), 16),
+            paddingBottom: Math.max(insets.bottom + 20, 28),
           },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Top Navigation Bar */}
+        <View style={styles.topBar}>
+          {step === 'otp' ? (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={handleBackToPhone}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              activeOpacity={0.7}
+              accessibilityLabel="Back to mobile number entry"
+            >
+              <BackIcon size={20} color={PALETTE.textSecondary} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.topBarPlaceholder} />
+          )}
+        </View>
+
         {/* Animated Brand Header */}
         <Animated.View
           style={[
@@ -286,20 +314,16 @@ export default function LoginScreen({ navigation }) {
           ]}
         >
           <View style={styles.logoRow}>
-            <SalesBusterLogo size={isCompact ? 36 : 42} />
-          </View>
-          <View style={styles.pillBadge}>
-            <SparklesIcon size={13} color="#C084FC" />
-            <Text style={styles.pillBadgeText}>AI VOICE CRM</Text>
+            <SalesBusterLogo width={isCompact ? 140 : 160} />
           </View>
 
           <Text style={styles.title}>
-            {step === 'phone' ? 'Instant Sign In' : 'Verification Code'}
+            {step === 'phone' ? 'Welcome to SalesBuster' : 'Verify your number'}
           </Text>
           <Text style={styles.subtitle}>
             {step === 'phone'
-              ? 'Enter your mobile number to receive a 4-digit verification code.'
-              : `Enter the 4-digit code sent to +91 ${phone}`}
+              ? 'Sign in with your mobile number to continue.'
+              : 'Enter the 4-digit code sent to your mobile.'}
           </Text>
         </Animated.View>
 
@@ -314,48 +338,81 @@ export default function LoginScreen({ navigation }) {
           ]}
         >
           {step === 'phone' ? (
-            /* ================= Step 1: Phone Number Input ================= */
+            /* ================= Step 1: Login / Mobile Number Screen ================= */
             <View>
-              <Text style={styles.fieldLabel}>Mobile Number</Text>
+              {/* Country Code + Mobile Number Input */}
               <View
                 style={[
                   styles.phoneInputContainer,
-                  phoneError ? styles.inputErrorBorder : null,
+                  isPhoneFocused && styles.phoneInputContainerFocused,
+                  phoneError ? styles.phoneInputContainerError : null,
                 ]}
               >
-                {/* +91 Country Badge */}
-                <View style={styles.countryCodeBadge}>
-                  <Text style={styles.flagText}>🇮🇳</Text>
+                {/* Country Code Selector (Default India +91) */}
+                <View style={styles.countryCodePill}>
+                  <Text style={styles.countryFlag}>🇮🇳</Text>
                   <Text style={styles.countryCodeText}>+91</Text>
+                  <ChevronDownIcon size={12} color={PALETTE.textMuted} />
                 </View>
 
-                {/* Phone Input */}
+                <View style={styles.phoneDivider} />
+
                 <TextInput
                   value={phone}
                   onChangeText={handlePhoneChange}
-                  placeholder="98765 43210"
-                  placeholderTextColor={PALETTE.textMuted}
+                  onFocus={() => setIsPhoneFocused(true)}
+                  onBlur={() => setIsPhoneFocused(false)}
+                  placeholder="Enter mobile number"
+                  placeholderTextColor={PALETTE.textPlaceholder}
                   keyboardType="phone-pad"
                   maxLength={10}
                   style={styles.phoneTextInput}
-                  autoFocus
+                  autoFocus={step === 'phone'}
                 />
+
+                {phone.length === 10 && (
+                  <View style={styles.phoneVerifiedBadge}>
+                    <CheckIcon size={12} color={PALETTE.emerald} />
+                  </View>
+                )}
               </View>
 
+              {/* 10-digit Guidance & Counter */}
+              <View style={styles.guidanceRow}>
+                <Text style={styles.guidanceText}>
+                  {phone.length === 0
+                    ? '10-digit mobile number'
+                    : phone.length < 10
+                    ? `Enter 10 digits (${10 - phone.length} remaining)`
+                    : 'Valid 10-digit mobile number'}
+                </Text>
+                <Text
+                  style={[
+                    styles.counterText,
+                    phone.length === 10 && styles.counterComplete,
+                  ]}
+                >
+                  {phone.length}/10
+                </Text>
+              </View>
+
+              {/* Inline Validation Error */}
               {phoneError ? (
-                <View style={styles.errorRow}>
+                <View style={styles.inlineErrorRow}>
                   <AlertCircleIcon size={14} color={PALETTE.errorText} />
-                  <Text style={styles.errorLabel}>{phoneError}</Text>
+                  <Text style={styles.inlineErrorText}>{phoneError}</Text>
                 </View>
               ) : null}
 
+              {/* Server Error Banner */}
               {serverError ? (
                 <View style={styles.serverErrorBox}>
-                  <AlertCircleIcon size={16} color={PALETTE.errorText} />
+                  <AlertCircleIcon size={15} color={PALETTE.errorText} />
                   <Text style={styles.serverErrorText}>{serverError}</Text>
                 </View>
               ) : null}
 
+              {/* Primary CTA: Continue */}
               <TouchableOpacity
                 style={[
                   styles.primaryButton,
@@ -363,68 +420,88 @@ export default function LoginScreen({ navigation }) {
                 ]}
                 onPress={handleSendOtp}
                 disabled={isLoading || phone.length < 10}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
+                <BrandGradientBackground id="login_continue_grad" borderRadius={16} />
                 {isLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.primaryButtonText}>Send OTP Code</Text>
+                  <Text style={styles.primaryButtonText}>Continue</Text>
                 )}
               </TouchableOpacity>
             </View>
           ) : (
-            /* ================= Step 2: 4-digit OTP Input ================= */
+            /* ================= Step 2: OTP Verification Screen ================= */
             <View>
-              <View style={styles.otpHeaderRow}>
-                <Text style={styles.fieldLabel}>4-Digit OTP</Text>
+              {/* Masked Mobile Number & Change Number Action */}
+              <View style={styles.otpMetaCard}>
+                <View style={styles.maskedNumberWrapper}>
+                  <PhoneIcon size={14} color={PALETTE.purpleBright} />
+                  <Text style={styles.maskedNumberText}>
+                    {formatMaskedPhone(phone)}
+                  </Text>
+                </View>
                 <TouchableOpacity
-                  style={styles.changePhoneButton}
-                  onPress={() => {
-                    setStep('phone');
-                    setOtp(['', '', '', '']);
-                    setServerError('');
-                  }}
+                  style={styles.changeNumberButton}
+                  onPress={handleBackToPhone}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <EditIcon size={13} color={PALETTE.purpleAccent} />
-                  <Text style={styles.changePhoneText}>Change Number</Text>
+                  <EditIcon size={13} color={PALETTE.purpleBright} />
+                  <Text style={styles.changeNumberText}>Change number</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* 4 Discrete Boxes */}
+              {/* Four Modern OTP Input Boxes */}
               <View style={styles.otpBoxesRow}>
-                {otp.map((digit, idx) => (
-                  <TextInput
-                    key={idx}
-                    ref={otpInputRefs[idx]}
-                    value={digit}
-                    onChangeText={val => handleOtpDigitChange(idx, val)}
-                    onKeyPress={e => handleOtpKeyPress(idx, e)}
-                    keyboardType="number-pad"
-                    maxLength={1}
-                    selectTextOnFocus
-                    style={[
-                      styles.otpBox,
-                      digit ? styles.otpBoxFilled : null,
-                      otpError ? styles.inputErrorBorder : null,
-                    ]}
-                  />
-                ))}
+                {otp.map((digit, idx) => {
+                  const isFocused = focusedOtpIndex === idx;
+                  const isFilled = Boolean(digit);
+                  const hasError = Boolean(otpError);
+
+                  return (
+                    <TextInput
+                      key={idx}
+                      ref={otpInputRefs[idx]}
+                      value={digit}
+                      onChangeText={val => handleOtpDigitChange(idx, val)}
+                      onKeyPress={e => handleOtpKeyPress(idx, e)}
+                      onFocus={() => setFocusedOtpIndex(idx)}
+                      onBlur={() =>
+                        setFocusedOtpIndex(prev => (prev === idx ? null : prev))
+                      }
+                      keyboardType="number-pad"
+                      maxLength={1}
+                      selectTextOnFocus
+                      textAlign="center"
+                      style={[
+                        styles.otpBox,
+                        isFilled && styles.otpBoxFilled,
+                        isFocused && styles.otpBoxFocused,
+                        hasError && styles.otpBoxError,
+                      ]}
+                    />
+                  );
+                })}
               </View>
 
+              {/* Friendly Inline Validation Error */}
               {otpError ? (
-                <View style={styles.errorRow}>
+                <View style={styles.inlineErrorRow}>
                   <AlertCircleIcon size={14} color={PALETTE.errorText} />
-                  <Text style={styles.errorLabel}>{otpError}</Text>
+                  <Text style={styles.inlineErrorText}>{otpError}</Text>
                 </View>
               ) : null}
 
+              {/* Server Error Banner */}
               {serverError ? (
                 <View style={styles.serverErrorBox}>
-                  <AlertCircleIcon size={16} color={PALETTE.errorText} />
+                  <AlertCircleIcon size={15} color={PALETTE.errorText} />
                   <Text style={styles.serverErrorText}>{serverError}</Text>
                 </View>
               ) : null}
 
+              {/* Prominent Verify Button */}
               <TouchableOpacity
                 style={[
                   styles.primaryButton,
@@ -432,41 +509,44 @@ export default function LoginScreen({ navigation }) {
                 ]}
                 onPress={() => handleVerifyOtp()}
                 disabled={isLoading || otp.some(d => !d)}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
+                <BrandGradientBackground id="verify_otp_grad" borderRadius={16} />
                 {isLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.primaryButtonText}>Verify & Proceed</Text>
+                  <Text style={styles.primaryButtonText}>Verify</Text>
                 )}
               </TouchableOpacity>
 
-              {/* Resend OTP Row */}
+              {/* Resend OTP Action with Visible Countdown */}
               <View style={styles.resendRow}>
                 {resendCooldown > 0 ? (
                   <Text style={styles.cooldownText}>
                     Resend code in{' '}
-                    <Text style={styles.cooldownSeconds}>{resendCooldown}s</Text>
+                    <Text style={styles.cooldownHighlight}>
+                      {resendCooldown}s
+                    </Text>
                   </Text>
                 ) : (
-                  <TouchableOpacity
-                    onPress={handleSendOtp}
-                    disabled={isLoading}
-                  >
-                    <Text style={styles.resendActionText}>Resend Code</Text>
-                  </TouchableOpacity>
+                  <View style={styles.resendActionContainer}>
+                    <Text style={styles.resendPromptText}>
+                      Didn't receive code?{' '}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={handleSendOtp}
+                      disabled={isLoading}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={styles.resendActionText}>Resend code</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
             </View>
           )}
         </Animated.View>
-
-        {/* Security / Compliance footer */}
-        <View style={styles.footerNote}>
-          <Text style={styles.footerNoteText}>
-            Protected by Fast2SMS DLT encryption & SalesBuster Tenant Isolation
-          </Text>
-        </View>
       </KeyboardAwareScrollView>
     </View>
   );
@@ -482,156 +562,223 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     justifyContent: 'center',
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    minHeight: 36,
+    marginBottom: 8,
+  },
+  topBarPlaceholder: {
+    height: 36,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerSection: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 24,
   },
   logoRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 10,
-  },
-  appName: {
-    color: PALETTE.textPrimary,
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  pillBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(168, 85, 247, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.3)',
+    justifyContent: 'center',
     marginBottom: 16,
-  },
-  pillBadgeText: {
-    color: '#C084FC',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
   },
   title: {
     color: PALETTE.textPrimary,
-    fontSize: 22,
+    fontSize: 24,
+    fontFamily: Fonts.family.bold,
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 8,
+    letterSpacing: -0.3,
   },
   subtitle: {
     color: PALETTE.textSecondary,
     fontSize: 14,
+    fontFamily: Fonts.family.regular,
     textAlign: 'center',
     lineHeight: 20,
     paddingHorizontal: 16,
   },
   card: {
     backgroundColor: PALETTE.cardBg,
-    borderRadius: 22,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: PALETTE.cardBorder,
-    padding: 22,
+    padding: 20,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 8,
-  },
-  fieldLabel: {
-    color: PALETTE.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4,
   },
   phoneInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: PALETTE.inputBg,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: PALETTE.inputBorder,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    height: 52,
+    paddingHorizontal: 14,
+    height: 56,
   },
-  countryCodeBadge: {
+  phoneInputContainerFocused: {
+    borderColor: PALETTE.inputBorderFocused,
+    backgroundColor: PALETTE.inputBgFocused,
+  },
+  phoneInputContainerError: {
+    borderColor: PALETTE.inputBorderError,
+    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+  },
+  countryCodePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingRight: 10,
-    borderRightWidth: 1,
-    borderRightColor: 'rgba(255, 255, 255, 0.1)',
   },
-  flagText: {
+  countryFlag: {
     fontSize: 18,
   },
   countryCodeText: {
     color: PALETTE.textPrimary,
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: Fonts.family.semiBold,
+  },
+  phoneDivider: {
+    width: 1,
+    height: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    marginHorizontal: 12,
   },
   phoneTextInput: {
     flex: 1,
-    paddingLeft: 12,
+    padding: 0,
+    margin: 0,
     color: PALETTE.textPrimary,
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: Fonts.family.medium,
     letterSpacing: 0.5,
   },
-  otpHeaderRow: {
+  phoneVerifiedBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: PALETTE.emeraldBg,
+    borderWidth: 1,
+    borderColor: PALETTE.emeraldBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  guidanceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginTop: 8,
+    paddingHorizontal: 2,
   },
-  changePhoneButton: {
+  guidanceText: {
+    color: PALETTE.textMuted,
+    fontSize: 12,
+    fontFamily: Fonts.family.regular,
+  },
+  counterText: {
+    color: PALETTE.textMuted,
+    fontSize: 12,
+    fontFamily: Fonts.family.medium,
+  },
+  counterComplete: {
+    color: PALETTE.emerald,
+  },
+  otpMetaCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.08)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.18)',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 18,
+  },
+  maskedNumberWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  maskedNumberText: {
+    color: PALETTE.textPrimary,
+    fontSize: 14,
+    fontFamily: Fonts.family.semiBold,
+    letterSpacing: 0.5,
+  },
+  changeNumberButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(167, 139, 250, 0.12)',
   },
-  changePhoneText: {
-    color: PALETTE.purpleAccent,
+  changeNumberText: {
+    color: PALETTE.purpleBright,
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: Fonts.family.medium,
   },
   otpBoxesRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 8,
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 6,
   },
   otpBox: {
     flex: 1,
+    maxWidth: 64,
     height: 60,
     backgroundColor: PALETTE.inputBg,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: PALETTE.inputBorder,
-    borderRadius: 14,
     color: PALETTE.textPrimary,
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 22,
+    fontFamily: Fonts.family.bold,
     textAlign: 'center',
   },
   otpBoxFilled: {
+    backgroundColor: '#141A29',
+    borderColor: 'rgba(139, 92, 246, 0.45)',
+  },
+  otpBoxFocused: {
+    backgroundColor: PALETTE.inputBgFocused,
     borderColor: PALETTE.inputBorderFocused,
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    borderWidth: 1.5,
   },
-  inputErrorBorder: {
+  otpBoxError: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
     borderColor: PALETTE.inputBorderError,
+    borderWidth: 1.5,
   },
-  errorRow: {
+  inlineErrorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 6,
+    marginTop: 8,
   },
-  errorLabel: {
+  inlineErrorText: {
     color: PALETTE.errorText,
-    fontSize: 12,
+    fontSize: 12.5,
+    fontFamily: Fonts.family.medium,
+    flex: 1,
   },
   serverErrorBox: {
     flexDirection: 'row',
@@ -647,46 +794,61 @@ const styles = StyleSheet.create({
   serverErrorText: {
     color: PALETTE.errorText,
     fontSize: 13,
+    fontFamily: Fonts.family.medium,
     flex: 1,
+    lineHeight: 18,
   },
   primaryButton: {
-    backgroundColor: PALETTE.electricBlue,
-    borderRadius: 14,
+    backgroundColor: '#5013C7',
+    borderRadius: 16,
     height: 52,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
-    shadowColor: PALETTE.electricBlue,
+    overflow: 'hidden',
+    shadowColor: '#5013C7',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   buttonDisabled: {
-    opacity: 0.55,
+    opacity: 0.5,
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.4,
+    fontSize: 15.5,
+    fontFamily: Fonts.family.bold,
+    letterSpacing: 0.3,
   },
   resendRow: {
     alignItems: 'center',
-    marginTop: 16,
+    justifyContent: 'center',
+    marginTop: 18,
   },
   cooldownText: {
-    color: PALETTE.textMuted,
-    fontSize: 13,
+    color: PALETTE.textSecondary,
+    fontSize: 13.5,
+    fontFamily: Fonts.family.regular,
   },
-  cooldownSeconds: {
-    color: PALETTE.purpleAccent,
-    fontWeight: '700',
+  cooldownHighlight: {
+    color: PALETTE.purpleBright,
+    fontFamily: Fonts.family.bold,
+  },
+  resendActionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resendPromptText: {
+    color: PALETTE.textSecondary,
+    fontSize: 13.5,
+    fontFamily: Fonts.family.regular,
   },
   resendActionText: {
-    color: PALETTE.purpleAccent,
-    fontSize: 14,
-    fontWeight: '700',
+    color: PALETTE.purpleBright,
+    fontSize: 13.5,
+    fontFamily: Fonts.family.semiBold,
   },
   footerNote: {
     alignItems: 'center',
@@ -695,7 +857,8 @@ const styles = StyleSheet.create({
   },
   footerNoteText: {
     color: PALETTE.textMuted,
-    fontSize: 11,
+    fontSize: 11.5,
+    fontFamily: Fonts.family.regular,
     textAlign: 'center',
     lineHeight: 16,
   },

@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Stop, Circle, Path } from 'react-native-svg';
 import Text from '../../components/common/AppText';
+import BrandGradientBackground from '../../components/common/BrandGradientBackground';
 import { Fonts } from '../../styles/Fonts';
 import { Colors } from '../../styles/Colors';
 import {
@@ -292,6 +293,7 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
           onPress={handleBackToHome}
           activeOpacity={0.85}
         >
+          <BrandGradientBackground id="success_back_home_grad" borderRadius={18} />
           <Text style={styles.backHomeBtnText}>Back to Home</Text>
         </TouchableOpacity>
 
@@ -459,6 +461,7 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
               onPress={handleBookDemo}
               activeOpacity={0.85}
             >
+              <BrandGradientBackground id="success_book_demo_grad" borderRadius={18} />
               <Text style={styles.bookDemoBtnText}>Book a Demo</Text>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -530,13 +533,14 @@ const styles = StyleSheet.create({
 
   // BACK TO HOME BUTTON
   backHomeBtn: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#4013C7',
+    overflow: 'hidden',
     height: 52,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 32,
-    shadowColor: '#7C3AED',
+    shadowColor: '#4013C7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
@@ -778,12 +782,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.medium,
   },
   bookDemoBtn: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#4013C7',
+    overflow: 'hidden',
     height: 50,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7C3AED',
+    shadowColor: '#4013C7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 10,

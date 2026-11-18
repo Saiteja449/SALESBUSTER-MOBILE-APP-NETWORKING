@@ -39,6 +39,7 @@ import {
 import { Fonts } from '../../styles/Fonts';
 import { Spacing } from '../../styles/Spacing';
 import { SalesBusterLogo } from '../../components/common/BrandLogo';
+import BrandGradientBackground from '../../components/common/BrandGradientBackground';
 
 const PALETTE = {
   bgDeep: 'rgba(4, 5, 15)',
@@ -592,6 +593,7 @@ export const GuestRegisterScreen = ({ navigation }) => {
                 (isLoading || isSuccess) && styles.primaryButtonDisabled,
               ]}
             >
+              <BrandGradientBackground id="register_btn_grad" borderRadius={14} />
               <View style={styles.buttonTopHighlight} />
               {isLoading ? (
                 <View style={styles.loadingRow}>
@@ -837,12 +839,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
     height: 52,
     borderRadius: 14,
-    backgroundColor: PALETTE.electricBlue,
+    backgroundColor: '#4013C7',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
     elevation: 6,
-    shadowColor: PALETTE.electricBlue,
+    shadowColor: '#4013C7',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 12,

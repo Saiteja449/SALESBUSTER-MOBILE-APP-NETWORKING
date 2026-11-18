@@ -22,92 +22,75 @@ import Text from '../common/AppText';
 import { Fonts } from '../../styles/Fonts';
 
 // ---------------------------------------------------------------------------
-// Step Configuration (7 Comprehensive Scenarios)
+// Step Configuration (6 Clear, 2-Line Actionable Steps)
 // ---------------------------------------------------------------------------
 export const GUIDANCE_STEPS = [
   {
     key: 'events',
     stepNumber: 1,
-    badgeText: '1 OF 7 • ACTIVE EVENT',
-    title: 'Event Workspace',
-    subtitle:
-      'Select the active exhibition or conference you are attending, or create a new event. All captured leads stay neatly organized by event.',
-    tip: 'Switch active events or add new ones anytime from the top bar.',
+    badgeText: 'Step 1 of 6',
+    title: 'Select or Create Event',
+    line1: 'Choose the event or expo you are attending.',
+    line2: 'All captured contacts are saved here automatically.',
     iconType: 'calendar',
     accentColor: '#8B5CF6',
   },
   {
     key: 'audio',
     stepNumber: 2,
-    badgeText: '2 OF 7 • VOICE CAPTURE',
+    badgeText: 'Step 2 of 6',
     title: 'One-Tap Voice AI',
-    subtitle:
-      'Tap to speak freely with booth visitors. SalesBuster AI automatically detects visitor names, phone numbers, and notes without manual typing.',
-    tip: 'Works even in noisy exhibition halls.',
+    line1: 'Tap the mic and speak naturally with your visitor.',
+    line2: 'AI instantly extracts their name, phone, and notes.',
     iconType: 'microphone',
     accentColor: '#9C40FA',
   },
   {
     key: 'image',
     stepNumber: 3,
-    badgeText: '3 OF 7 • CARD SCANNER',
+    badgeText: 'Step 3 of 6',
     title: 'Scan Business Cards',
-    subtitle:
-      'Take a quick photo of physical cards or visitor badges. Instant AI OCR extracts contact details and auto-fills your lead form in seconds.',
-    tip: 'Extracts name, company, email & mobile phone.',
+    line1: 'Snap a photo of any business card or visitor badge.',
+    line2: 'Details are extracted and filled into the form in seconds.',
     iconType: 'camera',
     accentColor: '#0284C7',
   },
   {
     key: 'form',
     stepNumber: 4,
-    badgeText: '4 OF 7 • SMART FORM',
-    title: 'Review & Edit Details',
-    subtitle:
-      'Review auto-filled fields, add key discussion takeaways, or take an optional booth selfie with the visitor before saving.',
-    tip: 'You can edit any field manually or let AI complete it.',
+    badgeText: 'Step 4 of 6',
+    title: 'Review Lead Details',
+    line1: 'Review or edit the auto-filled contact information.',
+    line2: 'Add extra notes or take a booth selfie with the visitor.',
     iconType: 'form',
     accentColor: '#F59E0B',
   },
   {
     key: 'save',
     stepNumber: 5,
-    badgeText: '5 OF 7 • INSTANT WHATSAPP',
+    badgeText: 'Step 5 of 6',
     title: 'Save & Send WhatsApp',
-    subtitle:
-      'Save the contact to your CRM and instantly send an automated product brochure or thank-you greeting directly to the visitor via WhatsApp.',
-    tip: 'Engages leads immediately while the conversation is fresh.',
+    line1: 'Save the contact to your CRM with a single tap.',
+    line2: 'Instantly send your catalog or greeting on WhatsApp.',
     iconType: 'whatsapp',
     accentColor: '#10B981',
   },
   {
     key: 'contacts',
     stepNumber: 6,
-    badgeText: '6 OF 7 • CONTACTS LIST',
-    title: 'Event Contacts Directory',
-    subtitle:
-      'Access and search all captured leads across all events. Filter by event, export to CSV/Excel, or call leads directly.',
-    tip: 'Never lose track of high-value prospects after the expo.',
+    badgeText: 'Step 6 of 6',
+    title: 'All Event Contacts',
+    line1: 'View, search, and manage all your captured leads.',
+    line2: 'Easily call prospects or export them anytime.',
     iconType: 'users',
     accentColor: '#EC4899',
-  },
-  {
-    key: 'products',
-    stepNumber: 7,
-    badgeText: '7 OF 7 • OUR PRODUCTS',
-    title: 'Product Catalogs & Collaterals',
-    subtitle:
-      'Quickly showcase your company products, feature brochures, and videos to booth visitors on the spot.',
-    tip: 'Share digital product PDFs directly during meetings.',
-    iconType: 'grid',
-    accentColor: '#6366F1',
   },
 ];
 
 // ---------------------------------------------------------------------------
-// Custom Vector Icons
+// Clean Vector Icons
 // ---------------------------------------------------------------------------
-const StepIcon = ({ type, size = 18, color = '#FFFFFF' }) => {
+const StepIcon = ({ type, size = 16, color = '#FFFFFF' }) => {
   switch (type) {
     case 'calendar':
       return (
@@ -199,6 +182,7 @@ const StepIcon = ({ type, size = 18, color = '#FFFFFF' }) => {
         </Svg>
       );
     case 'users':
+    default:
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
           <Path
@@ -226,20 +210,10 @@ const StepIcon = ({ type, size = 18, color = '#FFFFFF' }) => {
           />
         </Svg>
       );
-    case 'grid':
-    default:
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <Rect x="3" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth={2} />
-          <Rect x="14" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth={2} />
-          <Rect x="14" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth={2} />
-          <Rect x="3" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth={2} />
-        </Svg>
-      );
   }
 };
 
-const CloseIcon = ({ size = 15, color = '#94A3B8' }) => (
+const CloseIcon = ({ size = 13, color = '#94A3B8' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M18 6L6 18M6 6L18 18"
@@ -251,7 +225,7 @@ const CloseIcon = ({ size = 15, color = '#94A3B8' }) => (
   </Svg>
 );
 
-const ArrowRightIcon = ({ size = 15, color = '#FFFFFF' }) => (
+const ArrowRightIcon = ({ size = 13, color = '#FFFFFF' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M5 12H19M13 6L19 12L13 18"
@@ -263,7 +237,7 @@ const ArrowRightIcon = ({ size = 15, color = '#FFFFFF' }) => (
   </Svg>
 );
 
-const CheckIcon = ({ size = 15, color = '#FFFFFF' }) => (
+const CheckIcon = ({ size = 13, color = '#FFFFFF' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M20 6L9 17L4 12"
@@ -282,43 +256,23 @@ export const GuestActionableGuidance = ({
   visible,
   onClose,
   targets = {},
+  targetRefs = {},
   onStepChange,
+  onRequestRemeasure,
 }) => {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  // Animated values
+  // Measured popup card dimensions from onLayout
+  const [cardLayoutSize, setCardLayoutSize] = useState({ width: 0, height: 0 });
+
+  // Real-time direct measurement of the active step target ref
+  const [directLayout, setDirectLayout] = useState(null);
+
+  // Animated values for card step transition
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(0)).current;
-
-  // Continuous gentle halo pulse around spotlight
-  useEffect(() => {
-    let loop;
-    if (visible) {
-      loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1100,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 0,
-            duration: 1100,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ]),
-      );
-      loop.start();
-    } else {
-      pulseAnim.setValue(0);
-    }
-    return () => loop?.stop();
-  }, [visible, pulseAnim]);
 
   // Reset to step 0 when modal opens
   useEffect(() => {
@@ -326,21 +280,50 @@ export const GuestActionableGuidance = ({
       setCurrentStepIndex(0);
       cardOpacity.setValue(1);
       cardTranslateY.setValue(0);
+      setDirectLayout(null);
       onStepChange?.(0, GUIDANCE_STEPS[0].key);
+      onRequestRemeasure?.();
     }
-  }, [visible, cardOpacity, cardTranslateY, onStepChange]);
+  }, [visible, cardOpacity, cardTranslateY, onStepChange, onRequestRemeasure]);
 
   const currentStep = GUIDANCE_STEPS[currentStepIndex] || GUIDANCE_STEPS[0];
 
-  // Dynamic / fallback layout calculations for all 7 targets
+  // Directly measure active target component ref whenever current step changes
+  const measureActiveRef = useCallback(() => {
+    if (!visible) return;
+    const ref = targetRefs?.[currentStep.key];
+    if (ref?.current?.measureInWindow) {
+      try {
+        ref.current.measureInWindow((x, y, w, h) => {
+          if (w > 0 && h > 0) {
+            setDirectLayout({ x, y, width: w, height: h });
+          }
+        });
+      } catch {
+        // Safe fallback
+      }
+    }
+  }, [visible, currentStep.key, targetRefs]);
+
+  useEffect(() => {
+    measureActiveRef();
+    // Schedule a post-frame measurement for settling
+    const frameId = requestAnimationFrame(measureActiveRef);
+    return () => cancelAnimationFrame(frameId);
+  }, [measureActiveRef, currentStepIndex]);
+
+  // Dynamic / fallback layout calculations for all 6 targets
   const currentTargetLayout = useMemo(() => {
-    const raw = targets?.[currentStep.key];
+    const raw = directLayout || targets?.[currentStep.key];
     if (raw && raw.width > 0 && raw.height > 0) {
+      // Clamp form height to avoid an overly huge spotlight that blocks the screen
+      const clampedHeight =
+        currentStep.key === 'form' ? Math.min(raw.height, 130) : raw.height;
       return {
         x: Math.max(8, raw.x),
         y: Math.max(insets.top, raw.y),
         width: Math.min(width - 16, raw.width),
-        height: raw.height,
+        height: clampedHeight,
       };
     }
 
@@ -355,49 +338,42 @@ export const GuestActionableGuidance = ({
           x: padding,
           y: insets.top + 54,
           width: width - padding * 2,
-          height: 64,
+          height: 60,
         };
       case 'audio':
         return {
           x: padding,
-          y: insets.top + 130,
+          y: insets.top + 128,
           width: halfCardWidth,
-          height: 104,
+          height: 100,
         };
       case 'image':
         return {
           x: padding + halfCardWidth + cardGap,
-          y: insets.top + 130,
+          y: insets.top + 128,
           width: halfCardWidth,
-          height: 104,
+          height: 100,
         };
       case 'form':
         return {
           x: padding,
-          y: insets.top + 252,
+          y: insets.top + 248,
           width: width - padding * 2,
-          height: 240,
+          height: 125,
         };
       case 'save':
         return {
           x: padding + 85,
-          y: insets.top + 510,
+          y: Math.max(insets.top + 480, height - insets.bottom - 90),
           width: width - padding * 2 - 85,
           height: 52,
         };
       case 'contacts':
         return {
-          x: width - 180,
-          y: insets.top + 10,
-          width: 82,
-          height: 34,
-        };
-      case 'products':
-        return {
-          x: padding,
-          y: insets.top + 10,
-          width: 120,
-          height: 34,
+          x: width - 150,
+          y: insets.top + 8,
+          width: 80,
+          height: 32,
         };
       default:
         return {
@@ -407,22 +383,67 @@ export const GuestActionableGuidance = ({
           height: 60,
         };
     }
-  }, [targets, currentStep.key, insets.top, width]);
+  }, [directLayout, targets, currentStep.key, insets.top, insets.bottom, width, height]);
 
-  // Card dimensions & placement (clean simple box)
-  const cardWidth = Math.min(width - 32, 380);
-  const cardLeft = (width - cardWidth) / 2;
-  const estimatedCardHeight = 220;
+  // Card dimensions: responsive width clamped with 16px screen margins
+  const cardWidth = Math.min(width - 32, 360);
+  const effectiveCardHeight = cardLayoutSize.height > 0 ? cardLayoutSize.height : 130;
 
   const targetBottom = currentTargetLayout.y + currentTargetLayout.height;
   const targetTop = currentTargetLayout.y;
+  const targetCenterX = currentTargetLayout.x + currentTargetLayout.width / 2;
 
-  // Decide if simple box sits above or below target
-  const placeAbove = targetBottom + estimatedCardHeight > height - (insets.bottom + 50);
+  // Horizontal positioning: center on target, clamped within screen margins
+  const idealLeft = targetCenterX - cardWidth / 2;
+  const minLeft = 16;
+  const maxLeft = Math.max(minLeft, width - cardWidth - 16);
+  const popupLeft = Math.max(minLeft, Math.min(maxLeft, idealLeft));
 
-  const cardTopPosition = placeAbove
-    ? Math.max(insets.top + 16, targetTop - estimatedCardHeight - 16)
-    : targetBottom + 16;
+  // Arrow X offset relative to card, clamped so it never leaves card bounds
+  const rawArrowX = targetCenterX - popupLeft - 7;
+  const clampedArrowLeft = Math.max(16, Math.min(cardWidth - 30, rawArrowX));
+
+  // Vertical positioning: dynamically choose top or bottom to guarantee zero overlap
+  const SPACING = 12; // Gap between spotlight halo and popup card
+  const spaceBelow = height - insets.bottom - targetBottom;
+  const spaceAbove = targetTop - insets.top;
+  const requiredVerticalSpace = effectiveCardHeight + SPACING + 16;
+
+  let placement = 'bottom';
+  let popupTop = 0;
+
+  if (spaceBelow >= requiredVerticalSpace) {
+    placement = 'bottom';
+    popupTop = targetBottom + SPACING;
+  } else if (spaceAbove >= requiredVerticalSpace) {
+    placement = 'top';
+    popupTop = targetTop - effectiveCardHeight - SPACING;
+  } else {
+    // Edge case on very small screens: choose side with more room and clamp outside target
+    if (spaceBelow >= spaceAbove) {
+      placement = 'bottom';
+      popupTop = Math.min(
+        targetBottom + 8,
+        height - insets.bottom - effectiveCardHeight - 8
+      );
+    } else {
+      placement = 'top';
+      popupTop = Math.max(insets.top + 8, targetTop - effectiveCardHeight - 8);
+    }
+  }
+
+  // Handle onLayout for exact popup card dimensions
+  const handleCardLayout = useCallback((e) => {
+    const { width: w, height: h } = e.nativeEvent.layout;
+    if (w > 0 && h > 0) {
+      setCardLayoutSize((prev) => {
+        if (Math.abs(prev.height - h) > 2 || Math.abs(prev.width - w) > 2) {
+          return { width: w, height: h };
+        }
+        return prev;
+      });
+    }
+  }, []);
 
   // Transition to next step with smooth fade & slide
   const handleNext = useCallback(() => {
@@ -430,31 +451,32 @@ export const GuestActionableGuidance = ({
       Animated.parallel([
         Animated.timing(cardOpacity, {
           toValue: 0,
-          duration: 120,
+          duration: 110,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.timing(cardTranslateY, {
-          toValue: -8,
-          duration: 120,
+          toValue: -6,
+          duration: 110,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
       ]).start(() => {
+        setDirectLayout(null);
         const nextIdx = currentStepIndex + 1;
         setCurrentStepIndex(nextIdx);
         onStepChange?.(nextIdx, GUIDANCE_STEPS[nextIdx].key);
-        cardTranslateY.setValue(10);
+        cardTranslateY.setValue(8);
         Animated.parallel([
           Animated.timing(cardOpacity, {
             toValue: 1,
-            duration: 160,
+            duration: 150,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(cardTranslateY, {
             toValue: 0,
-            duration: 160,
+            duration: 150,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
@@ -471,28 +493,29 @@ export const GuestActionableGuidance = ({
       Animated.parallel([
         Animated.timing(cardOpacity, {
           toValue: 0,
-          duration: 120,
+          duration: 110,
           useNativeDriver: true,
         }),
         Animated.timing(cardTranslateY, {
-          toValue: 8,
-          duration: 120,
+          toValue: 6,
+          duration: 110,
           useNativeDriver: true,
         }),
       ]).start(() => {
+        setDirectLayout(null);
         const prevIdx = currentStepIndex - 1;
         setCurrentStepIndex(prevIdx);
         onStepChange?.(prevIdx, GUIDANCE_STEPS[prevIdx].key);
-        cardTranslateY.setValue(-10);
+        cardTranslateY.setValue(-8);
         Animated.parallel([
           Animated.timing(cardOpacity, {
             toValue: 1,
-            duration: 160,
+            duration: 150,
             useNativeDriver: true,
           }),
           Animated.timing(cardTranslateY, {
             toValue: 0,
-            duration: 160,
+            duration: 150,
             useNativeDriver: true,
           }),
         ]).start();
@@ -501,16 +524,6 @@ export const GuestActionableGuidance = ({
   }, [currentStepIndex, cardOpacity, cardTranslateY, onStepChange]);
 
   if (!visible) return null;
-
-  const pulseScale = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.04],
-  });
-
-  const pulseOpacity = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.75, 1],
-  });
 
   const isLastStep = currentStepIndex === GUIDANCE_STEPS.length - 1;
 
@@ -533,8 +546,8 @@ export const GuestActionableGuidance = ({
                 y={currentTargetLayout.y - 4}
                 width={currentTargetLayout.width + 8}
                 height={currentTargetLayout.height + 8}
-                rx={18}
-                ry={18}
+                rx={14}
+                ry={14}
                 fill="#000000"
               />
             </Mask>
@@ -544,25 +557,22 @@ export const GuestActionableGuidance = ({
             y="0"
             width={width}
             height={height}
-            fill="rgba(4, 5, 15, 0.88)"
+            fill="rgba(4, 5, 15, 0.82)"
             mask="url(#actionableSpotlightMask)"
           />
         </Svg>
 
-        {/* Animated Illuminated Border around Spotlight Target */}
-        <Animated.View
+        {/* Solid Illuminated Border around Spotlight Target (Calm & Non-Blinking) */}
+        <View
           pointerEvents="none"
           style={[
             styles.spotlightHalo,
             {
-              left: currentTargetLayout.x - 6,
-              top: currentTargetLayout.y - 6,
-              width: currentTargetLayout.width + 12,
-              height: currentTargetLayout.height + 12,
+              left: currentTargetLayout.x - 4,
+              top: currentTargetLayout.y - 4,
+              width: currentTargetLayout.width + 8,
+              height: currentTargetLayout.height + 8,
               borderColor: currentStep.accentColor,
-              shadowColor: currentStep.accentColor,
-              transform: [{ scale: pulseScale }],
-              opacity: pulseOpacity,
             },
           ]}
         />
@@ -572,36 +582,65 @@ export const GuestActionableGuidance = ({
           <View style={StyleSheet.absoluteFill} />
         </TouchableWithoutFeedback>
 
-        {/* Simple Floating Guidance Box (Clean box with NO outside arrow) */}
+        {/* Modern Floating Guidance Card with Accurate Arrow */}
         <Animated.View
+          onLayout={handleCardLayout}
           style={[
-            styles.simpleBox,
+            styles.guidanceCard,
             {
-              left: cardLeft,
-              top: cardTopPosition,
+              left: popupLeft,
+              top: popupTop,
               width: cardWidth,
               opacity: cardOpacity,
               transform: [{ translateY: cardTranslateY }],
             },
           ]}
         >
-          {/* Card Top Row: Step Badge + Skip Button */}
+          {/* Arrow pointing at target */}
+          {placement === 'bottom' ? (
+            <View style={[styles.arrowUp, { left: clampedArrowLeft }]}>
+              <Svg width={14} height={7} viewBox="0 0 14 7">
+                <Path
+                  d="M0 7L7 0L14 7"
+                  fill="#15132B"
+                  stroke="rgba(255, 255, 255, 0.15)"
+                  strokeWidth={1}
+                />
+              </Svg>
+            </View>
+          ) : (
+            <View style={[styles.arrowDown, { left: clampedArrowLeft }]}>
+              <Svg width={14} height={7} viewBox="0 0 14 7">
+                <Path
+                  d="M0 0L7 7L14 0"
+                  fill="#15132B"
+                  stroke="rgba(255, 255, 255, 0.15)"
+                  strokeWidth={1}
+                />
+              </Svg>
+            </View>
+          )}
+
+          {/* Header Row: Step Pill + Skip Button */}
           <View style={styles.cardHeaderRow}>
             <View
               style={[
-                styles.stepBadge,
-                { backgroundColor: `${currentStep.accentColor}20` },
+                styles.stepPill,
+                {
+                  backgroundColor: `${currentStep.accentColor}18`,
+                  borderColor: `${currentStep.accentColor}40`,
+                },
               ]}
             >
               <View
                 style={[
-                  styles.stepBadgeDot,
+                  styles.stepPillDot,
                   { backgroundColor: currentStep.accentColor },
                 ]}
               />
               <Text
                 style={[
-                  styles.stepBadgeText,
+                  styles.stepPillText,
                   { color: currentStep.accentColor },
                 ]}
               >
@@ -613,10 +652,10 @@ export const GuestActionableGuidance = ({
               onPress={onClose}
               style={styles.skipButton}
               activeOpacity={0.7}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Text style={styles.skipText}>Skip</Text>
-              <CloseIcon size={13} color="#94A3B8" />
+              <CloseIcon size={12} color="#94A3B8" />
             </TouchableOpacity>
           </View>
 
@@ -625,37 +664,31 @@ export const GuestActionableGuidance = ({
             <View
               style={[
                 styles.iconBubble,
-                { backgroundColor: `${currentStep.accentColor}22` },
+                { backgroundColor: `${currentStep.accentColor}20` },
               ]}
             >
               <StepIcon
                 type={currentStep.iconType}
-                size={18}
+                size={15}
                 color={currentStep.accentColor}
               />
             </View>
             <Text style={styles.cardTitle}>{currentStep.title}</Text>
           </View>
 
-          {/* Actionable Explanation */}
-          <Text style={styles.cardSubtitle}>{currentStep.subtitle}</Text>
+          {/* Instructional 2-Line Description */}
+          <View style={styles.textContainer}>
+            <Text style={styles.descLine} numberOfLines={1}>
+              {currentStep.line1}
+            </Text>
+            <Text style={styles.descLine} numberOfLines={1}>
+              {currentStep.line2}
+            </Text>
+          </View>
 
-          {/* Action Tip Pill */}
-          {currentStep.tip ? (
-            <View style={styles.tipWrap}>
-              <View
-                style={[
-                  styles.tipBulbDot,
-                  { backgroundColor: currentStep.accentColor },
-                ]}
-              />
-              <Text style={styles.tipText}>{currentStep.tip}</Text>
-            </View>
-          ) : null}
-
-          {/* Bottom Controls Row: Dots + Back + Next */}
+          {/* Footer Controls: Dots + Back & Next Buttons */}
           <View style={styles.cardFooterRow}>
-            {/* Step Indicators (7 Dots) */}
+            {/* Step Indicators */}
             <View style={styles.dotsRow}>
               {GUIDANCE_STEPS.map((_, idx) => (
                 <View
@@ -686,20 +719,17 @@ export const GuestActionableGuidance = ({
                 onPress={handleNext}
                 style={[
                   styles.nextButton,
-                  {
-                    backgroundColor: currentStep.accentColor,
-                    shadowColor: currentStep.accentColor,
-                  },
+                  { backgroundColor: currentStep.accentColor },
                 ]}
                 activeOpacity={0.85}
               >
                 <Text style={styles.nextButtonText}>
-                  {isLastStep ? 'Got It!' : 'Next'}
+                  {isLastStep ? 'Got It' : 'Next'}
                 </Text>
                 {isLastStep ? (
-                  <CheckIcon size={14} color="#FFFFFF" />
+                  <CheckIcon size={12} color="#FFFFFF" />
                 ) : (
-                  <ArrowRightIcon size={14} color="#FFFFFF" />
+                  <ArrowRightIcon size={12} color="#FFFFFF" />
                 )}
               </TouchableOpacity>
             </View>
@@ -711,7 +741,7 @@ export const GuestActionableGuidance = ({
 };
 
 // ---------------------------------------------------------------------------
-// Styles (Clean Simple Box - No Arrows)
+// Modern Styles (Dark Navy, Rounded Corners, Subtle Shadows)
 // ---------------------------------------------------------------------------
 const styles = StyleSheet.create({
   container: {
@@ -720,62 +750,75 @@ const styles = StyleSheet.create({
   },
   spotlightHalo: {
     position: 'absolute',
-    borderRadius: 22,
-    borderWidth: 2.5,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.95,
-    shadowRadius: 18,
-    elevation: 8,
+    borderRadius: 14,
+    borderWidth: 2,
     backgroundColor: 'transparent',
   },
-  simpleBox: {
+  guidanceCard: {
     position: 'absolute',
-    backgroundColor: '#16142A',
-    borderRadius: 20,
-    borderWidth: 1.5,
+    backgroundColor: '#15132B',
+    borderRadius: 16,
+    borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.55,
-    shadowRadius: 24,
-    elevation: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.45,
+        shadowRadius: 14,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  arrowUp: {
+    position: 'absolute',
+    top: -6.5,
+    zIndex: 20,
+  },
+  arrowDown: {
+    position: 'absolute',
+    bottom: -6.5,
+    zIndex: 20,
   },
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  stepBadge: {
+  stepPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 99,
+    borderWidth: 1,
   },
-  stepBadgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
+  stepPillDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    marginRight: 5,
   },
-  stepBadgeText: {
-    fontFamily: Fonts.bold,
-    fontSize: 10,
-    letterSpacing: 0.8,
+  stepPillText: {
+    fontFamily: Fonts.family.bold,
+    fontSize: 10.5,
+    letterSpacing: 0.2,
   },
   skipButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
   skipText: {
-    fontFamily: Fonts.semiBold,
-    fontSize: 12,
+    fontFamily: Fonts.family.medium,
+    fontSize: 11.5,
     color: '#94A3B8',
     marginRight: 4,
   },
@@ -785,69 +828,47 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   iconBubble: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 8,
   },
   cardTitle: {
-    fontFamily: Fonts.bold,
-    fontSize: 16.5,
+    fontFamily: Fonts.family.bold,
+    fontSize: 14,
     color: '#FFFFFF',
     flex: 1,
   },
-  cardSubtitle: {
-    fontFamily: Fonts.regular,
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#CBD5E1',
+  textContainer: {
     marginBottom: 10,
   },
-  tipWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    marginBottom: 14,
-  },
-  tipBulbDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 8,
-  },
-  tipText: {
-    fontFamily: Fonts.medium,
-    fontSize: 11.5,
-    color: '#E2E8F0',
-    flex: 1,
+  descLine: {
+    fontFamily: Fonts.family.regular,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#CBD5E1',
   },
   cardFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 4,
   },
   dotsRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   dot: {
-    height: 5,
-    borderRadius: 2.5,
-    marginRight: 5,
+    height: 4,
+    borderRadius: 2,
+    marginRight: 4,
   },
   activeDot: {
-    width: 18,
+    width: 14,
   },
   inactiveDot: {
-    width: 5,
+    width: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   buttonGroup: {
@@ -855,33 +876,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    marginRight: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginRight: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   backButtonText: {
-    fontFamily: Fonts.semiBold,
-    fontSize: 12.5,
+    fontFamily: Fonts.family.medium,
+    fontSize: 11.5,
     color: '#CBD5E1',
   },
   nextButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5.5,
+    borderRadius: 8,
   },
   nextButtonText: {
-    fontFamily: Fonts.bold,
-    fontSize: 12.5,
+    fontFamily: Fonts.family.bold,
+    fontSize: 11.5,
     color: '#FFFFFF',
-    marginRight: 4,
+    marginRight: 3,
   },
 });
 

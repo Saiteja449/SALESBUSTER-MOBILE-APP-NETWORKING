@@ -683,12 +683,11 @@ const GuestTourModal = ({ visible, onClose, onComplete }) => {
                           id="btnPillGrad"
                           x1="0"
                           y1="0"
-                          x2="68"
+                          x2="1"
                           y2="0"
-                          gradientUnits="userSpaceOnUse"
                         >
-                          <Stop offset="0" stopColor="#4F12C6" />
-                          <Stop offset="1" stopColor="#8935EE" />
+                          <Stop offset="0" stopColor="#4013C7" />
+                          <Stop offset="1" stopColor="#9C40FA" />
                         </LinearGradient>
                       </Defs>
                       <Rect

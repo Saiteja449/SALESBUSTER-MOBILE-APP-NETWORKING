@@ -466,14 +466,14 @@ export const AuthProvider = ({ children }) => {
 
       const updatedUser = {
         ...user,
-        name: data.name || name,
-        companyName: data.companyName || companyName,
-        role: data.role || role || user?.role,
-        city: data.city || city || user?.city,
-        email: data.email || email || user?.email || '',
+        name: data.name !== undefined ? data.name : name,
+        companyName: data.companyName !== undefined ? data.companyName : (companyName || ''),
+        role: data.role !== undefined ? data.role : (role || ''),
+        city: data.city !== undefined ? data.city : (city || ''),
+        email: data.email !== undefined ? data.email : (email || ''),
         isProfileComplete: true,
         organization: data.organization || user?.organization,
-        avatar: (data.name || name).substring(0, 2).toUpperCase(),
+        avatar: (data.name || name || 'Guest').substring(0, 2).toUpperCase(),
       };
 
       setUser(updatedUser);

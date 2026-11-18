@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Text from '../common/AppText';
+import BrandGradientBackground from '../common/BrandGradientBackground';
 import { Fonts } from '../../styles/Fonts';
 import { getFriendlyErrorMessage } from '../../utils/formatters';
 
@@ -66,6 +67,9 @@ export const useGuestAlert = () => {
                   onPress={() => dismiss(button)}
                   activeOpacity={0.82}
                 >
+                  {!destructive && !cancel && (
+                    <BrandGradientBackground id={`alert_btn_grad_${index}`} borderRadius={12} />
+                  )}
                   <Text style={[
                     styles.buttonText,
                     cancel && styles.cancelText,
@@ -135,7 +139,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: '#6D3EC4',
+    backgroundColor: '#4013C7',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },

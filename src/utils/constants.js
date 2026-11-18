@@ -88,6 +88,9 @@ export const API_ENDPOINTS = {
     ANALYZE_VOICE_AUDIO: `${BASE_URL}/events/analyze-voice-audio`,
     SCAN_CARD: `${BASE_URL}/events/scan-card`,
   },
+  SHORT_URL: {
+    SHORTEN: `${BASE_URL}/s/shorten`,
+  },
 };
 
 export const paramToTab = {

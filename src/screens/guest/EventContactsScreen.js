@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Text from '../../components/common/AppText';
 import TextInput from '../../components/common/AppTextInput';
+import BrandGradientBackground from '../../components/common/BrandGradientBackground';
 import { Fonts } from '../../styles/Fonts';
 import { Colors } from '../../styles/Colors';
 import {
@@ -38,7 +39,12 @@ import {
 } from '../../icons/Icons';
 import { useAuth } from '../../context/AuthContext';
 import { eventService, appendWhatsAppWatermark } from '../../services/api/eventService';
-import { getFriendlyErrorMessage } from '../../utils/formatters';
+import {
+  getFriendlyErrorMessage,
+  populateWhatsAppMessage,
+  shortenUrl,
+  appendBusinessInfoLink,
+} from '../../utils/formatters';
 import { getFullMediaUrl } from '../../utils/constants';
 
 export const EventContactsScreen = ({ navigation, route }) => {
@@ -287,24 +293,54 @@ export const EventContactsScreen = ({ navigation, route }) => {
     if (eventAttachment) {
       const rawUrl = eventAttachment.url || eventAttachment.uri || '';
       if (rawUrl) {
-        sharableFileLink =
+        const fullUrl =
           rawUrl.startsWith('http://') || rawUrl.startsWith('https://')
             ? rawUrl
             : getFullMediaUrl(rawUrl);
+        // Shorten link via in-house shortener (falls back gracefully to full URL)
+        sharableFileLink = await shortenUrl(fullUrl, token);
       }
     }
+
+    const senderName =
+      (user?.name && !user.name.startsWith('Guest_') ? user.name.trim() : '') ||
+      user?.name ||
+      '';
+    const senderCompany =
+      (user?.companyName && !user.companyName.includes("'s Workspace")
+        ? user.companyName.trim()
+        : '') ||
+      user?.companyName ||
+      '';
 
     const template = (contactEvent?.whatsappTemplate || contactEvent?.description || '').trim();
     const fallbackMsg = `Hi ${contact.name || 'there'}, thank you for connecting with us at ${contact.eventTitle || contactEvent?.name || 'the event'}!`;
     const resolvedTemplate = template
-      ? template
-          .replace(/\{there name\}|\{name\}/gi, contact.name || 'there')
-          .replace(/\{event name\}|\{event\}/gi, contact.eventTitle || contactEvent?.name || 'the event')
+      ? populateWhatsAppMessage(template, {
+          contactName: contact.name,
+          contactCompany: contact.companyName,
+          eventName: contact.eventTitle || contactEvent?.name,
+          venue: contactEvent?.venue || contactEvent?.location || '',
+          yourName: senderName,
+          companyName: senderCompany,
+        })
       : fallbackMsg;
 
-    let msg = contact.messageText || resolvedTemplate;
-    if (sharableFileLink && !msg.includes(sharableFileLink)) {
-      msg = `${msg.trim()}\n\n${sharableFileLink}`;
+    let msg = contact.messageText
+      ? populateWhatsAppMessage(contact.messageText, {
+          contactName: contact.name,
+          contactCompany: contact.companyName,
+          eventName: contact.eventTitle || contactEvent?.name,
+          venue: contactEvent?.venue || contactEvent?.location || '',
+          yourName: senderName,
+          companyName: senderCompany,
+        })
+      : resolvedTemplate;
+    if (sharableFileLink) {
+      msg = appendBusinessInfoLink(msg, sharableFileLink, {
+        companyName: senderCompany,
+        fileName: eventAttachment?.name || '',
+      });
     }
     msg = appendWhatsAppWatermark(msg);
 
@@ -775,6 +811,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
                 disabled={editSubmitting}
                 activeOpacity={0.85}
               >
+                <BrandGradientBackground id="edit_contact_save_grad" borderRadius={12} />
                 {editSubmitting ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
@@ -1212,7 +1249,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#4013C7',
+    overflow: 'hidden',
   },
   saveBtnText: {
     color: '#FFFFFF',

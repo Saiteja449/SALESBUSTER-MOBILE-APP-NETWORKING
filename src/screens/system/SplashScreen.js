@@ -20,11 +20,6 @@ const SplashScreen = ({ onAnimationComplete }) => {
   const { width, height } = useWindowDimensions();
   const isCompact = height < 680 || width < 360;
 
-  // AI Microchip animations
-  const chipOpacity = useRef(new Animated.Value(0)).current;
-  const chipScale = useRef(new Animated.Value(0.92)).current;
-  const chipPulse = useRef(new Animated.Value(1)).current;
-
   // Logo height reveal animation (grows height smoothly from the bottom up)
   const logoProgress = useRef(new Animated.Value(0)).current;
 
@@ -45,34 +40,19 @@ const SplashScreen = ({ onAnimationComplete }) => {
   const logoWidth = isCompact ? 190 : Math.min(226, Math.round(width * 0.58));
   const logoHeight = Math.round((logoWidth * 53) / 250);
 
-  // Exact vertical anchor coordinates
-  const chipTop = Math.round(height * 0.355 - chipHeight / 2);
-  const logoTop = Math.round(height * 0.51 - logoHeight / 2);
+  // Exact vertical anchor coordinates (AI image lowered by 8% of screen height)
+  const chipTop = Math.round(height * 0.435 - chipHeight / 2);
+  const logoTop = Math.max(
+    Math.round(height * 0.55 - logoHeight / 2),
+    chipTop + chipHeight + (isCompact ? 14 : 20),
+  );
   const taglineTop = Math.round(logoTop + logoHeight + (isCompact ? 10 : 14));
 
   useEffect(() => {
     let isCancelled = false;
 
-    // Continuous subtle breathing loop on the chip
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(chipPulse, {
-          toValue: 1.04,
-          duration: 1400,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(chipPulse, {
-          toValue: 1,
-          duration: 1400,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
     // Sequential choreography:
-    // 1. AI microchip entrance
+    // 1. Steady display of AI microchip, small pause before logo reveal
     // 2. Logo increases height smoothly from the bottom
     // 3. "Capture" appears
     // 4. "• Control" appears
@@ -80,21 +60,8 @@ const SplashScreen = ({ onAnimationComplete }) => {
     // 6. Rest pause so the complete screen is readable
     // 7. Trigger onAnimationComplete
     const masterSequence = Animated.sequence([
-      // 1. Chip appears at optical center
-      Animated.parallel([
-        Animated.timing(chipOpacity, {
-          toValue: 1,
-          duration: 380,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.spring(chipScale, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]),
+      // Steady display of chip, brief pause before logo entrance
+      Animated.delay(200),
 
       // 2. Logo increases height smoothly from the bottom up
       Animated.timing(logoProgress, {
@@ -162,7 +129,6 @@ const SplashScreen = ({ onAnimationComplete }) => {
       Animated.delay(650),
     ]);
 
-    pulseLoop.start();
     masterSequence.start(({ finished }) => {
       if (finished && !isCancelled) {
         onAnimationComplete?.();
@@ -171,13 +137,9 @@ const SplashScreen = ({ onAnimationComplete }) => {
 
     return () => {
       isCancelled = true;
-      pulseLoop.stop();
       masterSequence.stop();
     };
   }, [
-    chipOpacity,
-    chipScale,
-    chipPulse,
     logoProgress,
     text1Opacity,
     text1TranslateY,
@@ -224,23 +186,24 @@ const SplashScreen = ({ onAnimationComplete }) => {
 
       {/* 2. Absolute Foreground Elements */}
       <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-        {/* Glowing AI Microchip */}
-        <Animated.View
+        {/* AI Microchip - 0.7 opacity, no blinking */}
+        <View
           style={[
             styles.chipWrapper,
             {
               top: chipTop,
-              opacity: chipOpacity,
-              transform: [{ scale: chipPulse }],
             },
           ]}
         >
           <Image
             source={SPLASH_AI}
-            style={{ width: chipWidth, height: chipHeight }}
+            style={[
+              styles.chipImage,
+              { width: chipWidth, height: chipHeight },
+            ]}
             resizeMode="contain"
           />
-        </Animated.View>
+        </View>
 
         {/* SalesBuster Wordmark Logo - Smooth height increase from bottom */}
         <Animated.View
@@ -361,8 +324,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
+    
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  chipImage: {
+    opacity:0.3,
   },
   logoWrapper: {
     position: 'absolute',

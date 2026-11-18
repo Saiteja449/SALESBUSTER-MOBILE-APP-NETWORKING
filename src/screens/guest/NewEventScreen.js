@@ -29,11 +29,16 @@ import { DatePicker } from '../../components/pickers';
 import { useGuestAlert } from '../../components/guest/GuestAlert';
 import { useAuth } from '../../context/AuthContext';
 import { eventService } from '../../services/api/eventService';
-import { getFriendlyErrorMessage } from '../../utils/formatters';
+import {
+  getFriendlyErrorMessage,
+  DEFAULT_CUSTOM_WHATSAPP_MESSAGE,
+} from '../../utils/formatters';
+import BrandGradientBackground from '../../components/common/BrandGradientBackground';
 import { getFullMediaUrl } from '../../utils/constants';
 
 const LAST_EVENT_STORAGE_KEY = 'salesbuster_last_selected_event_id';
-const FIXED_WHATSAPP_TEMPLATE = 'Hi {there name}! Great meeting you at {event name}';
+const FIXED_WHATSAPP_TEMPLATE =
+  'Hi {there name}! Great meeting you at {event name}';
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB limit (expanded from 2 * 1024 * 1024)
 
 const formatEventDate = d => {
@@ -47,7 +52,8 @@ const formatEventDate = d => {
 };
 
 const extractInitialFile = evt => {
-  if (!evt || !Array.isArray(evt.attachments) || evt.attachments.length === 0) return null;
+  if (!evt || !Array.isArray(evt.attachments) || evt.attachments.length === 0)
+    return null;
   const att = evt.attachments[0];
   if (!att) return null;
   const rawUrl = att.url || att.uri || '';
@@ -95,14 +101,19 @@ export const NewEventScreen = ({ navigation, route }) => {
   );
 
   const getInitialCustomMessage = () => {
-    if (initialEvent?.customMessage) return initialEvent.customMessage;
+    if (
+      initialEvent?.customMessage !== undefined &&
+      initialEvent?.customMessage !== null
+    ) {
+      return initialEvent.customMessage;
+    }
     if (initialEvent?.whatsappTemplate) {
       const parts = initialEvent.whatsappTemplate.split(/\r?\n\r?\n/);
       if (parts.length > 1) {
         return parts.slice(1).join('\n\n').trim();
       }
     }
-    return '';
+    return DEFAULT_CUSTOM_WHATSAPP_MESSAGE;
   };
 
   const [customMessage, setCustomMessage] = useState(getInitialCustomMessage());
@@ -411,11 +422,11 @@ export const NewEventScreen = ({ navigation, route }) => {
             <TextInput
               style={[styles.textInput, styles.customMessageInput]}
               multiline
-              numberOfLines={3}
+              numberOfLines={5}
               textAlignVertical="top"
               value={customMessage}
               onChangeText={setCustomMessage}
-              placeholder="You can add a custom message along with the WhatsApp template. Write your message as per your preference."
+              placeholder={DEFAULT_CUSTOM_WHATSAPP_MESSAGE}
               placeholderTextColor="#8F90A6"
             />
             <View style={styles.editIconContainer} pointerEvents="none">
@@ -490,6 +501,7 @@ export const NewEventScreen = ({ navigation, route }) => {
           disabled={saving}
           activeOpacity={0.85}
         >
+          <BrandGradientBackground id="new_event_btn_grad" borderRadius={16} />
           {saving ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
@@ -776,13 +788,14 @@ const styles = StyleSheet.create({
 
   // SAVE BUTTON
   saveButton: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#4013C7',
     height: 52,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 24,
-    shadowColor: '#8B5CF6',
+    overflow: 'hidden',
+    shadowColor: '#4013C7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 10,

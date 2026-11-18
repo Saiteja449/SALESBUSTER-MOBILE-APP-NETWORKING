@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,11 +7,16 @@ import {
   Alert,
   Linking,
   StatusBar,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Text from '../../components/common/AppText';
+import BrandGradientBackground from '../../components/common/BrandGradientBackground';
 import { Fonts } from '../../styles/Fonts';
-import { Spacing } from '../../styles/Spacing';
 import {
   UserIcon,
   MailIcon,
@@ -25,11 +30,75 @@ import {
   TrashIcon,
   ChevronRightIcon,
   BackIcon,
+  EditIcon,
+  XIcon,
 } from '../../icons/Icons';
 import { useAuth } from '../../context/AuthContext';
 
 export const GuestAccountScreen = ({ navigation }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, completeProfile } = useAuth();
+
+  // Edit Profile Modal state
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editCompany, setEditCompany] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editRole, setEditRole] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [formError, setFormError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleOpenEditModal = () => {
+    setEditName(user?.name || '');
+    setEditCompany(user?.companyName || user?.organization?.name || '');
+    setEditCity(user?.city || '');
+    setEditRole(user?.role || '');
+    const currentEmail =
+      user?.email && !user.email.includes('@guest.salesbuster.ai') ? user.email : '';
+    setEditEmail(currentEmail);
+    setFormError('');
+    setIsEditModalVisible(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) {
+      setFormError('Full name is required.');
+      return;
+    }
+
+    if (editEmail.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(editEmail.trim())) {
+        setFormError('Please enter a valid email address.');
+        return;
+      }
+    }
+
+    setFormError('');
+    setIsSaving(true);
+
+    try {
+      const res = await completeProfile({
+        name: editName.trim(),
+        companyName: editCompany.trim(),
+        role: editRole.trim(),
+        city: editCity.trim(),
+        email: editEmail.trim(),
+      });
+
+      setIsSaving(false);
+
+      if (res?.success) {
+        setIsEditModalVisible(false);
+        Alert.alert('Profile Updated', 'Your profile details have been saved successfully.');
+      } else {
+        setFormError(res?.message || 'Failed to update profile. Please try again.');
+      }
+    } catch (err) {
+      setIsSaving(false);
+      setFormError(err?.message || 'Network error updating profile.');
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -113,7 +182,7 @@ export const GuestAccountScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <StatusBar barStyle="light-content" backgroundColor="#0B0A1F" />
 
-      {/* 1. Header with Back button */}
+      {/* 1. Header with Back button and Edit Profile button */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backCircleBtn}
@@ -123,7 +192,14 @@ export const GuestAccountScreen = ({ navigation }) => {
           <BackIcon size={18} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Profile</Text>
-        <View style={styles.headerRightSpacer} />
+        <TouchableOpacity
+          style={styles.editHeaderBtn}
+          onPress={handleOpenEditModal}
+          activeOpacity={0.7}
+        >
+          <EditIcon size={15} color="#C084FC" />
+          <Text style={styles.editHeaderBtnText}>Edit</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -150,7 +226,17 @@ export const GuestAccountScreen = ({ navigation }) => {
 
         {/* Profile Information Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Profile Details</Text>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTitle}>Profile Details</Text>
+            <TouchableOpacity
+              style={styles.cardEditPill}
+              onPress={handleOpenEditModal}
+              activeOpacity={0.7}
+            >
+              <EditIcon size={13} color="#C084FC" />
+              <Text style={styles.cardEditPillText}>Edit Profile</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Full Name */}
           <View style={styles.infoRow}>
@@ -203,30 +289,26 @@ export const GuestAccountScreen = ({ navigation }) => {
           </View>
 
           {/* Role / Designation */}
-          {user?.role ? (
-            <View style={styles.infoRow}>
-              <View style={styles.iconCircle}>
-                <UserIcon size={16} color="#A78BFA" />
-              </View>
-              <View style={styles.infoCol}>
-                <Text style={styles.infoLabel}>Role / Designation</Text>
-                <Text style={styles.infoValue}>{user.role}</Text>
-              </View>
+          <View style={styles.infoRow}>
+            <View style={styles.iconCircle}>
+              <UserIcon size={16} color="#A78BFA" />
             </View>
-          ) : null}
+            <View style={styles.infoCol}>
+              <Text style={styles.infoLabel}>Role / Designation</Text>
+              <Text style={styles.infoValue}>{user?.role || 'Not provided (Optional)'}</Text>
+            </View>
+          </View>
 
           {/* City */}
-          {user?.city ? (
-            <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-              <View style={styles.iconCircle}>
-                <LocationPinIcon size={16} color="#A78BFA" />
-              </View>
-              <View style={styles.infoCol}>
-                <Text style={styles.infoLabel}>City</Text>
-                <Text style={styles.infoValue}>{user.city}</Text>
-              </View>
+          <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+            <View style={styles.iconCircle}>
+              <LocationPinIcon size={16} color="#A78BFA" />
             </View>
-          ) : null}
+            <View style={styles.infoCol}>
+              <Text style={styles.infoLabel}>City</Text>
+              <Text style={styles.infoValue}>{user?.city || 'Not provided (Optional)'}</Text>
+            </View>
+          </View>
         </View>
 
         {/* Security & Policies Card */}
@@ -279,14 +361,14 @@ export const GuestAccountScreen = ({ navigation }) => {
           </View>
 
           <Text style={styles.upgradeDesc}>
-            Your captured events, contacts, and voice notes remain safe and will seamlessly carry over when upgraded.
+            Take your business to the next level with full CRM capabilities:
           </Text>
 
           <View style={styles.featureList}>
             {crmFeatures.map((feat, idx) => (
               <View key={idx} style={styles.featureItem}>
                 <View style={styles.checkWrap}>
-                  <CheckIcon size={12} color="#C084FC" />
+                  <CheckIcon size={12} color="#A78BFA" />
                 </View>
                 <View style={styles.featureCol}>
                   <Text style={styles.featureTitle}>{feat.title}</Text>
@@ -298,14 +380,13 @@ export const GuestAccountScreen = ({ navigation }) => {
 
           <View style={styles.upgradeActionBox}>
             <Text style={styles.upgradeNotice}>
-              Upgrades are managed by your SalesBuster Administrator. Contact your account manager or support team to activate CRM.
+              Visit <Text style={{ color: '#C084FC', fontFamily: Fonts.family.bold }}>salesbuster.ai</Text> to upgrade your workspace to full CRM.
             </Text>
           </View>
         </View>
 
-        {/* Action Buttons: Log Out and Delete Account */}
+        {/* Account Actions */}
         <View style={styles.actionsContainer}>
-          {/* Logout Button */}
           <TouchableOpacity
             style={styles.logoutBtn}
             onPress={handleLogout}
@@ -315,7 +396,6 @@ export const GuestAccountScreen = ({ navigation }) => {
             <Text style={styles.logoutBtnText}>Log Out</Text>
           </TouchableOpacity>
 
-          {/* Delete Account Button */}
           <TouchableOpacity
             style={styles.deleteBtn}
             onPress={handleDeleteAccount}
@@ -326,6 +406,184 @@ export const GuestAccountScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={isEditModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => !isSaving && setIsEditModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalContent}>
+              {/* Modal Header */}
+              <View style={styles.modalHeader}>
+                <View style={styles.modalHeaderTitleRow}>
+                  <View style={styles.modalHeaderIconWrap}>
+                    <EditIcon size={17} color="#C084FC" />
+                  </View>
+                  <View>
+                    <Text style={styles.modalTitle}>Edit Profile</Text>
+                    <Text style={styles.modalSubtitle}>Update your personal and business details</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.modalCloseBtn}
+                  onPress={() => setIsEditModalVisible(false)}
+                  disabled={isSaving}
+                  activeOpacity={0.7}
+                >
+                  <XIcon size={18} color="#94A3B8" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                style={styles.modalBody}
+                contentContainerStyle={styles.modalBodyContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                {formError ? (
+                  <View style={styles.errorBanner}>
+                    <Text style={styles.errorBannerText}>{formError}</Text>
+                  </View>
+                ) : null}
+
+                {/* Name */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    Full Name <Text style={styles.requiredStar}>*</Text>
+                  </Text>
+                  <View style={styles.inputWrap}>
+                    <UserIcon size={16} color="#A78BFA" />
+                    <TextInput
+                      style={styles.textInput}
+                      value={editName}
+                      onChangeText={setEditName}
+                      placeholder="Enter your full name"
+                      placeholderTextColor="#64748B"
+                      editable={!isSaving}
+                    />
+                  </View>
+                </View>
+
+                {/* Company */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Company / Workspace</Text>
+                  <View style={styles.inputWrap}>
+                    <BuildingIcon size={16} color="#A78BFA" />
+                    <TextInput
+                      style={styles.textInput}
+                      value={editCompany}
+                      onChangeText={setEditCompany}
+                      placeholder="Enter company or workspace name"
+                      placeholderTextColor="#64748B"
+                      editable={!isSaving}
+                    />
+                  </View>
+                </View>
+
+                {/* City */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>City</Text>
+                  <View style={styles.inputWrap}>
+                    <LocationPinIcon size={16} color="#A78BFA" />
+                    <TextInput
+                      style={styles.textInput}
+                      value={editCity}
+                      onChangeText={setEditCity}
+                      placeholder="Enter city (e.g. Hyderabad, Mumbai)"
+                      placeholderTextColor="#64748B"
+                      editable={!isSaving}
+                    />
+                  </View>
+                </View>
+
+                {/* Role */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Role / Designation</Text>
+                  <View style={styles.inputWrap}>
+                    <UserIcon size={16} color="#A78BFA" />
+                    <TextInput
+                      style={styles.textInput}
+                      value={editRole}
+                      onChangeText={setEditRole}
+                      placeholder="e.g. Sales Manager, Founder, Director"
+                      placeholderTextColor="#64748B"
+                      editable={!isSaving}
+                    />
+                  </View>
+                </View>
+
+                {/* Email */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Email Address</Text>
+                  <View style={styles.inputWrap}>
+                    <MailIcon size={16} color="#A78BFA" />
+                    <TextInput
+                      style={styles.textInput}
+                      value={editEmail}
+                      onChangeText={setEditEmail}
+                      placeholder="e.g. name@company.com"
+                      placeholderTextColor="#64748B"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      editable={!isSaving}
+                    />
+                  </View>
+                </View>
+
+                {/* Phone Read-Only Notice */}
+                <View style={styles.readOnlyPhoneBox}>
+                  <PhoneIcon size={15} color="#818CF8" />
+                  <View style={styles.readOnlyPhoneCol}>
+                    <Text style={styles.readOnlyPhoneLabel}>Registered Phone</Text>
+                    <Text style={styles.readOnlyPhoneValue}>
+                      {user?.phone ? (user.phone.startsWith('+91') ? user.phone : `+91 ${user.phone}`) : 'Not available'}
+                    </Text>
+                    <Text style={styles.readOnlyPhoneHint}>
+                      Phone number is permanently linked to OTP authentication and cannot be edited.
+                    </Text>
+                  </View>
+                </View>
+              </ScrollView>
+
+              {/* Modal Footer */}
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setIsEditModalVisible(false)}
+                  disabled={isSaving}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalCancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalSaveBtn, isSaving && styles.modalSaveBtnDisabled]}
+                  onPress={handleSaveProfile}
+                  disabled={isSaving}
+                  activeOpacity={0.7}
+                >
+                  <BrandGradientBackground id="edit_profile_save_grad" borderRadius={14} />
+                  {isSaving ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <CheckIcon size={16} color="#FFFFFF" />
+                      <Text style={styles.modalSaveBtnText}>Save Changes</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -360,8 +618,21 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.bold,
     letterSpacing: 0.2,
   },
-  headerRightSpacer: {
-    width: 38,
+  editHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(124, 58, 237, 0.18)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.35)',
+  },
+  editHeaderBtnText: {
+    color: '#DDD6FE',
+    fontSize: 13,
+    fontFamily: Fonts.family.semiBold,
   },
   container: {
     flex: 1,
@@ -438,13 +709,34 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
   cardTitle: {
     fontSize: 12,
     fontFamily: Fonts.family.bold,
     color: '#DDD6FE',
-    marginBottom: 14,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
+  },
+  cardEditPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(124, 58, 237, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(167, 139, 250, 0.3)',
+  },
+  cardEditPillText: {
+    color: '#DDD6FE',
+    fontSize: 11,
+    fontFamily: Fonts.family.semiBold,
   },
   infoRow: {
     flexDirection: 'row',
@@ -630,6 +922,213 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Fonts.family.bold,
     color: '#FCA5A5',
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // EDIT PROFILE MODAL STYLES
+  // ─────────────────────────────────────────────────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(3, 2, 10, 0.78)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#131127',
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderTopWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.3)',
+    maxHeight: '90%',
+    paddingBottom: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  modalHeaderTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  modalHeaderIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(124, 58, 237, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.3)',
+  },
+  modalTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontFamily: Fonts.family.bold,
+  },
+  modalSubtitle: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontFamily: Fonts.family.regular,
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1E1B38',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  modalBody: {
+    paddingHorizontal: 22,
+  },
+  modalBodyContent: {
+    paddingTop: 18,
+    paddingBottom: 20,
+  },
+  errorBanner: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.35)',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+  errorBannerText: {
+    color: '#FCA5A5',
+    fontSize: 12,
+    fontFamily: Fonts.family.medium,
+    lineHeight: 17,
+  },
+  inputGroup: {
+    marginBottom: 14,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontFamily: Fonts.family.medium,
+    color: '#CBD5E1',
+    marginBottom: 6,
+  },
+  requiredStar: {
+    color: '#F87171',
+    fontSize: 12,
+    fontFamily: Fonts.family.bold,
+  },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1B1736',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.22)',
+    paddingHorizontal: 14,
+    height: 48,
+    gap: 10,
+  },
+  textInput: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: Fonts.family.regular,
+    paddingVertical: 0,
+  },
+  readOnlyPhoneBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(30, 27, 56, 0.65)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    padding: 12,
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  readOnlyPhoneCol: {
+    flex: 1,
+  },
+  readOnlyPhoneLabel: {
+    fontSize: 11,
+    fontFamily: Fonts.family.medium,
+    color: '#818CF8',
+    marginBottom: 2,
+  },
+  readOnlyPhoneValue: {
+    fontSize: 13,
+    fontFamily: Fonts.family.semiBold,
+    color: '#CBD5E1',
+  },
+  readOnlyPhoneHint: {
+    fontSize: 10,
+    fontFamily: Fonts.family.regular,
+    color: '#64748B',
+    marginTop: 4,
+    lineHeight: 14,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 14,
+    backgroundColor: '#1E1A38',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelBtnText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontFamily: Fonts.family.semiBold,
+  },
+  modalSaveBtn: {
+    flex: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 13,
+    borderRadius: 14,
+    backgroundColor: '#4013C7',
+    overflow: 'hidden',
+    shadowColor: '#4013C7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  modalSaveBtnDisabled: {
+    opacity: 0.65,
+  },
+  modalSaveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: Fonts.family.bold,
   },
 });
 

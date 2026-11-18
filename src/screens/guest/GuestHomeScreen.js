@@ -17,6 +17,7 @@ import {
   Image,
   NativeModules,
   ToastAndroid,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -77,7 +78,14 @@ import { OrgOwnerTabBar } from '../../components/common/OrgOwnerTabBar';
 import { useGuestAlert } from '../../components/guest/GuestAlert';
 import GuestTourModal from '../../components/guest/GuestTourModal';
 import GuestActionableGuidance from '../../components/guest/GuestActionableGuidance';
-import { getFriendlyErrorMessage } from '../../utils/formatters';
+import {
+  getFriendlyErrorMessage,
+  populateWhatsAppMessage,
+  DEFAULT_CUSTOM_WHATSAPP_MESSAGE,
+  shortenUrl,
+  appendBusinessInfoLink,
+} from '../../utils/formatters';
+import BrandGradientBackground from '../../components/common/BrandGradientBackground';
 import { getFullMediaUrl } from '../../utils/constants';
 
 const LAST_EVENT_STORAGE_KEY = 'salesbuster_last_selected_event_id';
@@ -392,39 +400,70 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const guidanceProductsRef = useRef(null);
   const [guidanceTargets, setGuidanceTargets] = useState({});
 
-  const measureGuidanceTargets = useCallback(() => {
-    const measurements = {};
-    const measureRef = (ref, key) => {
-      if (ref?.current?.measureInWindow) {
+  // Promise-based target measurement with zero hardcoded assumptions
+  const measureTargetAsync = useCallback(ref => {
+    return new Promise(resolve => {
+      if (!ref?.current?.measureInWindow) {
+        return resolve(null);
+      }
+      try {
         ref.current.measureInWindow((x, y, width, height) => {
           if (width > 0 && height > 0) {
-            measurements[key] = { x, y, width, height };
+            resolve({ x, y, width, height });
+          } else {
+            resolve(null);
           }
         });
+      } catch {
+        resolve(null);
       }
-    };
-
-    measureRef(guidanceEventRef, 'events');
-    measureRef(guidanceVoiceRef, 'audio');
-    measureRef(guidanceCameraRef, 'image');
-    measureRef(guidanceFormRef, 'form');
-    measureRef(guidanceSaveRef, 'save');
-    measureRef(guidanceContactsRef, 'contacts');
-    measureRef(guidanceProductsRef, 'products');
-
-    setTimeout(() => {
-      setGuidanceTargets(prev => ({ ...prev, ...measurements }));
-    }, 60);
+    });
   }, []);
 
+  const measureGuidanceTargets = useCallback(async () => {
+    try {
+      const [events, audio, image, form, save, contacts] = await Promise.all([
+        measureTargetAsync(guidanceEventRef),
+        measureTargetAsync(guidanceVoiceRef),
+        measureTargetAsync(guidanceCameraRef),
+        measureTargetAsync(guidanceFormRef),
+        measureTargetAsync(guidanceSaveRef),
+        measureTargetAsync(guidanceContactsRef),
+      ]);
+
+      const measurements = {};
+      if (events) measurements.events = events;
+      if (audio) measurements.audio = audio;
+      if (image) measurements.image = image;
+      if (form) measurements.form = form;
+      if (save) measurements.save = save;
+      if (contacts) measurements.contacts = contacts;
+
+      setGuidanceTargets(prev => {
+        let hasDiff = false;
+        for (const k in measurements) {
+          const p = prev[k];
+          const n = measurements[k];
+          if (
+            !p ||
+            Math.abs(p.x - n.x) > 1.5 ||
+            Math.abs(p.y - n.y) > 1.5 ||
+            Math.abs(p.width - n.width) > 1.5 ||
+            Math.abs(p.height - n.height) > 1.5
+          ) {
+            hasDiff = true;
+            break;
+          }
+        }
+        return hasDiff ? { ...prev, ...measurements } : prev;
+      });
+    } catch {
+      // Safe fallback
+    }
+  }, [measureTargetAsync]);
+
   const handleGuidanceStepChange = useCallback((stepIndex, stepKey) => {
-    if (stepKey === 'form') {
-      if (scrollViewRef.current?.scrollToPosition) {
-        scrollViewRef.current.scrollToPosition(0, 240, true);
-      } else if (scrollViewRef.current?.scrollTo) {
-        scrollViewRef.current.scrollTo({ y: 240, animated: true });
-      }
-    } else if (stepKey === 'save') {
+    if (stepKey === 'save') {
       if (scrollViewRef.current?.scrollToEnd) {
         scrollViewRef.current.scrollToEnd(true);
       } else if (scrollViewRef.current?.scrollTo) {
@@ -438,9 +477,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       }
     }
 
-    setTimeout(() => {
+    // Schedule re-measurement once scroll settle animation completes
+    requestAnimationFrame(() => {
       measureGuidanceTargets();
-    }, 320);
+      setTimeout(measureGuidanceTargets, 260);
+    });
   }, [measureGuidanceTargets]);
 
   const handleTourComplete = useCallback(() => {
@@ -2270,27 +2311,41 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     ).trim();
     const fallbackGreeting = `Hi ${targetName}, it was a pleasure connecting with you at ${selectedEvent.name}! Here are our company and event details. Feel free to reach out anytime!`;
 
+    const senderName =
+      (user?.name && !user.name.startsWith('Guest_') ? user.name.trim() : '') ||
+      user?.name ||
+      '';
+    const senderCompany =
+      (user?.companyName && !user.companyName.includes("'s Workspace")
+        ? user.companyName.trim()
+        : '') ||
+      user?.companyName ||
+      '';
+
     // Populate template variables
     let populated = (contactData.messageText || messageText || '').trim();
     if (!populated) {
       if (eventTemplate) {
-        populated = eventTemplate
-          .replace(/\{there name\}|\{name\}/gi, targetName || 'there')
-          .replace(
-            /\{company\}/gi,
-            (contactData.companyName || '').trim() || 'your company',
-          )
-          .replace(
-            /\{event name\}|\{event\}/gi,
-            selectedEvent.name || 'our event',
-          )
-          .replace(
-            /\{venue\}/gi,
-            selectedEvent.venue || selectedEvent.location || '',
-          );
+        populated = populateWhatsAppMessage(eventTemplate, {
+          contactName: targetName,
+          contactCompany: (contactData.companyName || '').trim(),
+          eventName: selectedEvent.name,
+          venue: selectedEvent.venue || selectedEvent.location || '',
+          yourName: senderName,
+          companyName: senderCompany,
+        });
       } else {
         populated = fallbackGreeting;
       }
+    } else {
+      populated = populateWhatsAppMessage(populated, {
+        contactName: targetName,
+        contactCompany: (contactData.companyName || '').trim(),
+        eventName: selectedEvent.name,
+        venue: selectedEvent.venue || selectedEvent.location || '',
+        yourName: senderName,
+        companyName: senderCompany,
+      });
     }
 
     // Helper to identify image attachment
@@ -2315,24 +2370,31 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         ? selectedEvent.attachments[0]
         : null;
 
-    // Resolve sharable link on our server for the event file
+    // Resolve and shorten sharable link on our server for the event file
     let sharableFileLink = '';
     if (eventAttachment) {
       const rawUrl = eventAttachment.url || eventAttachment.uri || '';
       if (rawUrl) {
-        sharableFileLink =
+        const fullUrl =
           rawUrl.startsWith('http://') || rawUrl.startsWith('https://')
             ? rawUrl
             : getFullMediaUrl(rawUrl);
+        // Shorten the link using our in-house URL shortener (falls back gracefully if offline)
+        sharableFileLink = await shortenUrl(fullUrl, token);
       }
     }
 
-    // Append sharable file link to text message if not already included
+    // Append professional business info tag and shortened link to text message
     let messageWithFileLink = populated;
-    if (sharableFileLink && !messageWithFileLink.includes(sharableFileLink)) {
-      messageWithFileLink = messageWithFileLink.trim()
-        ? `${messageWithFileLink.trim()}\n\n${sharableFileLink}`
-        : sharableFileLink;
+    if (sharableFileLink) {
+      messageWithFileLink = appendBusinessInfoLink(
+        messageWithFileLink,
+        sharableFileLink,
+        {
+          companyName: senderCompany,
+          fileName: eventAttachment?.name || '',
+        }
+      );
     }
     messageWithFileLink = appendWhatsAppWatermark(messageWithFileLink);
 
@@ -2520,12 +2582,13 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     }
     setCreatingEvent(true);
     try {
+      const templateToSave = newEventDesc.trim() || `Hi {there name}! Great meeting you at {event name}\n\n${DEFAULT_CUSTOM_WHATSAPP_MESSAGE}`;
       const res = await eventService.createEvent(token, {
         name: newEventName.trim(),
         venue: newEventLocation.trim() || 'Venue',
         location: newEventLocation.trim() || 'Venue',
-        description: newEventDesc.trim(),
-        whatsappTemplate: newEventDesc.trim(),
+        description: templateToSave,
+        whatsappTemplate: templateToSave,
       });
       if (res.success && res.data) {
         setEvents(prev => [res.data, ...prev]);
@@ -2591,6 +2654,8 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          onMomentumScrollEnd={measureGuidanceTargets}
+          onScrollEndDrag={measureGuidanceTargets}
         >
           {/* 1. TOP ACTION NAVIGATION BAR */}
           <View style={styles.topBar}>
@@ -2606,18 +2671,8 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               <Text style={styles.productsBtnText}>Our Products</Text>
             </TouchableOpacity>
 
-            {/* Right Action Group: Profile, Contacts, New Event, Info */}
+            {/* Right Action Group: Contacts, New Event, Info */}
             <View style={styles.topBarRight}>
-              {/* Profile Pill Button */}
-              <TouchableOpacity
-                style={styles.pillActionBtn}
-                onPress={() => navigation?.navigate('GuestAccount')}
-                activeOpacity={0.8}
-              >
-                <UserIcon size={12} color="#A78BFA" />
-                <Text style={styles.pillActionBtnText}>Profile</Text>
-              </TouchableOpacity>
-
               {/* Contacts Pill Button */}
               <TouchableOpacity
                 ref={guidanceContactsRef}
@@ -2963,6 +3018,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               disabled={submitting}
               activeOpacity={0.85}
             >
+              <BrandGradientBackground id="save_btn_grad" borderRadius={15} />
               {submitting ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
@@ -3210,6 +3266,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               }}
               activeOpacity={0.85}
             >
+              <BrandGradientBackground id="no_event_btn_grad" borderRadius={14} />
               <PlusIcon size={16} color="#FFFFFF" />
               <Text style={styles.noEventCreateBtnText}>Create New Event</Text>
             </TouchableOpacity>
@@ -3290,6 +3347,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               onPress={handleCreateEvent}
               disabled={creatingEvent}
             >
+              <BrandGradientBackground id="event_dialog_btn_grad" borderRadius={12} />
               {creatingEvent ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
@@ -3518,6 +3576,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               onPress={handleBookDemo}
               activeOpacity={0.85}
             >
+              <BrandGradientBackground id="modal_book_demo_grad" borderRadius={18} />
               <Text style={styles.bookDemoBtnText}>Book a Demo</Text>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -3825,12 +3884,21 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         onComplete={handleTourComplete}
       />
 
-      {/* 2. GUEST ACTIONABLE GUIDANCE (7-STEP COMIC SPEECH-BUBBLE TOUR) */}
+      {/* 2. GUEST ACTIONABLE GUIDANCE (6-STEP ONBOARDING TOUR) */}
       <GuestActionableGuidance
         visible={isActionableGuideVisible}
         onClose={() => setIsActionableGuideVisible(false)}
         targets={guidanceTargets}
+        targetRefs={{
+          events: guidanceEventRef,
+          audio: guidanceVoiceRef,
+          image: guidanceCameraRef,
+          form: guidanceFormRef,
+          save: guidanceSaveRef,
+          contacts: guidanceContactsRef,
+        }}
         onStepChange={handleGuidanceStepChange}
+        onRequestRemeasure={measureGuidanceTargets}
       />
       {/* ========================================================================= */}
       {/* MODAL: VOICE CAPTURE POPUP (EXACT MATCH TO DESIGN - IMAGE 2) */}
@@ -4245,6 +4313,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                     onPress={handleFinishVoice}
                     activeOpacity={0.85}
                   >
+                    <BrandGradientBackground id="guest_voice_finish_grad" borderRadius={14} />
                     <Text style={styles.voiceFinishBtnText}>Finish</Text>
                   </TouchableOpacity>
                 </View>
@@ -4854,6 +4923,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2E304F',
     alignItems: 'center',
+    alignSelf: 'center',
     position: 'relative',
   },
   noEventCloseBtn: {
@@ -4899,13 +4969,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#4013C7',
+    overflow: 'hidden',
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 14,
     width: '100%',
     marginBottom: 10,
-    shadowColor: '#7C3AED',
+    shadowColor: '#4013C7',
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 4,
@@ -5112,6 +5183,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
   bottomSheetContainer: {
@@ -5334,6 +5406,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#16172B',
     borderRadius: 20,
     padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
     borderWidth: 1,
     borderColor: '#2E304F',
   },
@@ -5369,12 +5444,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   dialogSubmitBtn: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#4013C7',
     height: 48,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
+    overflow: 'hidden',
   },
   dialogSubmitBtnText: {
     color: '#FFFFFF',
@@ -5743,12 +5819,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.medium,
   },
   bookDemoBtn: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#4013C7',
+    overflow: 'hidden',
     height: 50,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7C3AED',
+    shadowColor: '#4013C7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -6298,15 +6375,16 @@ const styles = StyleSheet.create({
   },
   bottomSaveBtn: {
     flex: 2.3,
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#4013C7',
     borderRadius: 15,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
     ...Platform.select({
       android: { elevation: 4 },
       ios: {
-        shadowColor: '#7C3AED',
+        shadowColor: '#4013C7',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.35,
         shadowRadius: 8,
@@ -6518,7 +6596,8 @@ const styles = StyleSheet.create({
     flex: 1.2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#4013C7',
+    overflow: 'hidden',
     borderRadius: 14,
     paddingVertical: 12,
   },
