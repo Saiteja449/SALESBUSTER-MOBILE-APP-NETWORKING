@@ -137,17 +137,13 @@ export const GuestAccountScreen = ({ navigation }) => {
   const handleOpenPrivacyPolicy = async () => {
     const url = 'https://salesbuster.ai/#/privacy';
     try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert(
-          'Privacy Policy',
-          'Please visit https://salesbuster.ai/#/privacy in your web browser.'
-        );
-      }
-    } catch {
-      Linking.openURL(url).catch(() => {});
+      await Linking.openURL(url);
+    } catch (err) {
+      console.warn('Could not open privacy policy URL:', err);
+      Alert.alert(
+        'Unable to Open Browser',
+        'Please visit https://salesbuster.ai/#/privacy in your web browser.'
+      );
     }
   };
 

@@ -140,8 +140,10 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
 
   const isServiceVideo = (item) => {
     if (!item) return false;
+    if (item.videoUrl) return true;
+    if (item.hasVideo) return true;
     if (item.mediaType === 'video') return true;
-    const url = item.mediaUrl || item.imageUrl || '';
+    const url = item.videoUrl || item.mediaUrl || '';
     return /\.(mp4|webm|mov|mkv|avi|m3u8)(\?.*)?$/i.test(url);
   };
 
@@ -305,8 +307,10 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
           {/* 2-Column Grid */}
           <View style={styles.gridContainer}>
             {servicesList.map((item) => {
-              const imageSourceUri = resolveServiceImageUri(item.mediaUrl || item.imageUrl);
               const isVideo = isServiceVideo(item);
+              const imageSourceUri = resolveServiceImageUri(
+                item.bannerImageUrl || (!isVideo ? item.imageUrl : '') || item.imageUrl || item.mediaUrl
+              );
               return (
                 <TouchableOpacity
                   key={item.id || item._id || item.serviceKey}
@@ -384,12 +388,7 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
                   <View style={styles.sheetTagPill}>
                     <Text style={styles.sheetTagText}>{selectedService?.tag}</Text>
                   </View>
-                  {isServiceVideo(selectedService) && (
-                    <View style={styles.videoPill}>
-                      <PlayIcon size={10} color="#A78BFA" />
-                      <Text style={styles.videoPillText}>Video</Text>
-                    </View>
-                  )}
+                  
                 </View>
               </View>
 
@@ -402,21 +401,33 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Inline Video Player directly inside the service banner (no extra modal) */}
-            {isServiceVideo(selectedService) && (
+            {/* Inline Video Player or Banner Image inside the service banner */}
+            {isServiceVideo(selectedService) ? (
               <InlineVideoPlayer
                 videoUrl={resolveServiceImageUri(
-                  selectedService?.mediaUrl || selectedService?.imageUrl
+                  selectedService?.videoUrl || selectedService?.mediaUrl
                 )}
-                posterUrl={
-                  selectedService?.imageUrl
-                    ? resolveServiceImageUri(selectedService.imageUrl)
-                    : ''
-                }
+                posterUrl={resolveServiceImageUri(
+                  selectedService?.bannerImageUrl || (!isServiceVideo(selectedService) ? selectedService?.imageUrl : '') || selectedService?.imageUrl
+                )}
                 fallbackBg={selectedService?.fallbackBg || '#1A1838'}
                 title={selectedService?.title || 'Service Video'}
                 containerStyle={styles.videoModalBanner}
               />
+            ) : (
+              (selectedService?.bannerImageUrl || selectedService?.imageUrl) ? (
+                <View style={styles.videoModalBanner}>
+                  <Image
+                    source={{
+                      uri: resolveServiceImageUri(
+                        selectedService?.bannerImageUrl || selectedService?.imageUrl
+                      ),
+                    }}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                  />
+                </View>
+              ) : null
             )}
 
             {/* Description */}

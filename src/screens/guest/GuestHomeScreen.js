@@ -864,8 +864,10 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   // Helper to determine if product media is video
   const isProductVideo = (prod) => {
     if (!prod) return false;
+    if (prod.videoUrl) return true;
+    if (prod.hasVideo) return true;
     if (prod.mediaType === 'video') return true;
-    const url = prod.mediaUrl || prod.imageUrl || '';
+    const url = prod.videoUrl || prod.mediaUrl || '';
     return /\.(mp4|webm|mov|mkv|avi|m3u8)(\?.*)?$/i.test(url);
   };
 
@@ -3403,8 +3405,10 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               contentContainerStyle={{ paddingBottom: 16 }}
             >
               {productsList.map(prod => {
-                const mediaUri = getFullMediaUrl(prod.mediaUrl || prod.imageUrl);
                 const isVideo = isProductVideo(prod);
+                const bannerUri = getFullMediaUrl(
+                  prod.bannerImageUrl || (!isVideo ? prod.imageUrl : '') || prod.imageUrl || prod.mediaUrl
+                );
                 return (
                   <TouchableOpacity
                     key={prod.id || prod._id || prod.serviceKey}
@@ -3419,9 +3423,9 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                         { backgroundColor: prod.fallbackBg || '#1A1838' },
                       ]}
                     >
-                      {mediaUri ? (
+                      {bannerUri ? (
                         <Image
-                          source={{ uri: mediaUri }}
+                          source={{ uri: bannerUri }}
                           style={styles.productThumbImage}
                           resizeMode="cover"
                         />
@@ -3442,12 +3446,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                         <View style={styles.productTagPill}>
                           <Text style={styles.productTagPillText}>{prod.tag}</Text>
                         </View>
-                        {isVideo && (
-                          <View style={styles.productVideoPill}>
-                            <PlayIcon size={9} color="#A78BFA" />
-                            <Text style={styles.productVideoPillText}>Video</Text>
-                          </View>
-                        )}
+                        
                       </View>
                     </View>
 
@@ -3495,12 +3494,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                       {selectedProduct?.tag}
                     </Text>
                   </View>
-                  {isProductVideo(selectedProduct) && (
-                    <View style={styles.productVideoPill}>
-                      <PlayIcon size={10} color="#A78BFA" />
-                      <Text style={styles.productVideoPillText}>Video</Text>
-                    </View>
-                  )}
+                 
                 </View>
               </View>
 
@@ -3513,21 +3507,33 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Inline Video Player directly inside the product banner (no extra modal) */}
-            {isProductVideo(selectedProduct) && (
+            {/* Inline Video Player or Banner Image inside the product banner */}
+            {isProductVideo(selectedProduct) ? (
               <InlineVideoPlayer
                 videoUrl={getFullMediaUrl(
-                  selectedProduct?.mediaUrl || selectedProduct?.imageUrl
+                  selectedProduct?.videoUrl || selectedProduct?.mediaUrl
                 )}
-                posterUrl={
-                  selectedProduct?.imageUrl
-                    ? getFullMediaUrl(selectedProduct.imageUrl)
-                    : ''
-                }
+                posterUrl={getFullMediaUrl(
+                  selectedProduct?.bannerImageUrl || (!isProductVideo(selectedProduct) ? selectedProduct?.imageUrl : '') || selectedProduct?.imageUrl
+                )}
                 fallbackBg={selectedProduct?.fallbackBg || '#1A1838'}
                 title={selectedProduct?.title || 'Product Video'}
                 containerStyle={styles.videoBannerContainer}
               />
+            ) : (
+              (selectedProduct?.bannerImageUrl || selectedProduct?.imageUrl) ? (
+                <View style={styles.videoBannerContainer}>
+                  <Image
+                    source={{
+                      uri: getFullMediaUrl(
+                        selectedProduct?.bannerImageUrl || selectedProduct?.imageUrl
+                      ),
+                    }}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                  />
+                </View>
+              ) : null
             )}
 
             {/* Description */}

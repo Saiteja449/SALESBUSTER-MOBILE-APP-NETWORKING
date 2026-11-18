@@ -78,7 +78,7 @@ export const checkPermissionStatus = async (permissionId) => {
           PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_CONTACTS),
           PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.WRITE_CONTACTS),
         ]);
-        return readGranted && writeGranted
+        return (readGranted || writeGranted)
           ? PERMISSION_STATUS.GRANTED
           : PERMISSION_STATUS.DENIED;
       }
@@ -230,18 +230,37 @@ export const requestPermissionById = async (permissionId, currentStatus) => {
       }
 
       case 'contacts': {
-        const perms = [
-          PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
-          PermissionsAndroid.PERMISSIONS.WRITE_CONTACTS,
-        ];
-        const results = await PermissionsAndroid.requestMultiple(perms);
-        const values = Object.values(results);
-        if (values.every((v) => v === PermissionsAndroid.RESULTS.GRANTED)) {
+        const readPerm = PermissionsAndroid.PERMISSIONS.READ_CONTACTS;
+        const writePerm = PermissionsAndroid.PERMISSIONS.WRITE_CONTACTS;
+
+        const readRes = await PermissionsAndroid.request(readPerm, {
+          title: 'Contacts Access',
+          message:
+            'SalesBuster needs contacts access to recognize WhatsApp contacts and sync event attendees.',
+          buttonPositive: 'Allow',
+          buttonNegative: 'Not Now',
+        });
+
+        // Also attempt WRITE_CONTACTS in case the OS supports separate grant for local contact storage
+        try {
+          await PermissionsAndroid.request(writePerm);
+        } catch (_) {
+          // Ignore if OS manages WRITE under the same permission group
+        }
+
+        const [hasRead, hasWrite] = await Promise.all([
+          PermissionsAndroid.check(readPerm),
+          PermissionsAndroid.check(writePerm),
+        ]);
+
+        if (hasRead || hasWrite || readRes === PermissionsAndroid.RESULTS.GRANTED) {
           return PERMISSION_STATUS.GRANTED;
         }
-        if (values.some((v) => v === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN)) {
+
+        if (readRes === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
           return PERMISSION_STATUS.BLOCKED;
         }
+
         return PERMISSION_STATUS.DENIED;
       }
 

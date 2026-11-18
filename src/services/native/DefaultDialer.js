@@ -445,12 +445,21 @@ export const ensureContactWritePermissions = async () => {
       PermissionsAndroid.check(readPerm),
       PermissionsAndroid.check(writePerm),
     ]);
-    if (hasRead && hasWrite) return true;
+    if (hasRead || hasWrite) return true;
 
-    const results = await PermissionsAndroid.requestMultiple([readPerm, writePerm]);
+    const readRes = await PermissionsAndroid.request(readPerm);
+    try {
+      await PermissionsAndroid.request(writePerm);
+    } catch (_) {}
+
+    const [recheckRead, recheckWrite] = await Promise.all([
+      PermissionsAndroid.check(readPerm),
+      PermissionsAndroid.check(writePerm),
+    ]);
     return (
-      results[readPerm] === PermissionsAndroid.RESULTS.GRANTED &&
-      results[writePerm] === PermissionsAndroid.RESULTS.GRANTED
+      recheckRead ||
+      recheckWrite ||
+      readRes === PermissionsAndroid.RESULTS.GRANTED
     );
   } catch (error) {
     console.warn('Contact permission request failed:', error);
