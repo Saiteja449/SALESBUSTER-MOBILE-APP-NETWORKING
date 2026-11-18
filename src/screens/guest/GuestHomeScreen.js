@@ -86,6 +86,7 @@ import {
   appendBusinessInfoLink,
 } from '../../utils/formatters';
 import BrandGradientBackground from '../../components/common/BrandGradientBackground';
+import { InlineVideoPlayer } from '../../components/common/InlineVideoPlayer';
 import { getFullMediaUrl } from '../../utils/constants';
 
 const LAST_EVENT_STORAGE_KEY = 'salesbuster_last_selected_event_id';
@@ -3512,45 +3513,21 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Video Banner if product is video */}
+            {/* Inline Video Player directly inside the product banner (no extra modal) */}
             {isProductVideo(selectedProduct) && (
-              <TouchableOpacity
-                style={styles.videoBannerContainer}
-                activeOpacity={0.85}
-                onPress={() => {
-                  const url = getFullMediaUrl(
-                    selectedProduct?.mediaUrl || selectedProduct?.imageUrl
-                  );
-                  if (url) {
-                    Linking.openURL(url).catch(err => {
-                      Alert.alert('Cannot open video', err.message);
-                    });
-                  }
-                }}
-              >
-                {selectedProduct?.imageUrl ? (
-                  <Image
-                    source={{
-                      uri: getFullMediaUrl(selectedProduct.imageUrl),
-                    }}
-                    style={styles.videoBannerImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View
-                    style={[
-                      styles.videoBannerImage,
-                      { backgroundColor: selectedProduct?.fallbackBg || '#1A1838' },
-                    ]}
-                  />
+              <InlineVideoPlayer
+                videoUrl={getFullMediaUrl(
+                  selectedProduct?.mediaUrl || selectedProduct?.imageUrl
                 )}
-                <View style={styles.videoBannerOverlay}>
-                  <View style={styles.videoPlayCircle}>
-                    <PlayIcon size={20} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.videoPlayText}>Watch Video Preview</Text>
-                </View>
-              </TouchableOpacity>
+                posterUrl={
+                  selectedProduct?.imageUrl
+                    ? getFullMediaUrl(selectedProduct.imageUrl)
+                    : ''
+                }
+                fallbackBg={selectedProduct?.fallbackBg || '#1A1838'}
+                title={selectedProduct?.title || 'Product Video'}
+                containerStyle={styles.videoBannerContainer}
+              />
             )}
 
             {/* Description */}

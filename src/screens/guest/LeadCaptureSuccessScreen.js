@@ -24,6 +24,7 @@ import {
   XIcon,
   PlayIcon,
 } from '../../icons/Icons';
+import { InlineVideoPlayer } from '../../components/common/InlineVideoPlayer';
 import { eventService } from '../../services/api/eventService';
 import { getFullMediaUrl } from '../../utils/constants';
 
@@ -401,43 +402,21 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Video Banner if item is video */}
+            {/* Inline Video Player directly inside the service banner (no extra modal) */}
             {isServiceVideo(selectedService) && (
-              <TouchableOpacity
-                style={styles.videoModalBanner}
-                activeOpacity={0.85}
-                onPress={() => {
-                  const url = resolveServiceImageUri(
-                    selectedService?.mediaUrl || selectedService?.imageUrl
-                  );
-                  if (url) {
-                    Linking.openURL(url).catch((err) => {
-                      Alert.alert('Cannot open video', err.message);
-                    });
-                  }
-                }}
-              >
-                {selectedService?.imageUrl ? (
-                  <Image
-                    source={{ uri: resolveServiceImageUri(selectedService.imageUrl) }}
-                    style={styles.videoModalBannerImg}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View
-                    style={[
-                      styles.videoModalBannerImg,
-                      { backgroundColor: selectedService?.fallbackBg || '#1A1838' },
-                    ]}
-                  />
+              <InlineVideoPlayer
+                videoUrl={resolveServiceImageUri(
+                  selectedService?.mediaUrl || selectedService?.imageUrl
                 )}
-                <View style={styles.videoModalOverlay}>
-                  <View style={styles.videoPlayCircle}>
-                    <PlayIcon size={20} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.videoPlayText}>Watch Video Preview</Text>
-                </View>
-              </TouchableOpacity>
+                posterUrl={
+                  selectedService?.imageUrl
+                    ? resolveServiceImageUri(selectedService.imageUrl)
+                    : ''
+                }
+                fallbackBg={selectedService?.fallbackBg || '#1A1838'}
+                title={selectedService?.title || 'Service Video'}
+                containerStyle={styles.videoModalBanner}
+              />
             )}
 
             {/* Description */}
