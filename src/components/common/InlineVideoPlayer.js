@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   StatusBar,
+  Platform,
 } from 'react-native';
 import {
   PlayIcon,
@@ -30,7 +31,7 @@ try {
   NativeVideo = null;
 }
 
-const formatTime = (seconds) => {
+const formatTime = seconds => {
   if (!seconds || isNaN(seconds) || seconds < 0) return '0:00';
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
@@ -43,6 +44,7 @@ export const InlineVideoPlayer = ({
   fallbackBg = '#0F0E1E',
   containerStyle,
   title = '',
+  resizeMode = 'contain',
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -57,31 +59,45 @@ export const InlineVideoPlayer = ({
   const fullscreenVideoRef = useRef(null);
   const currentPositionRef = useRef(0);
   const controlsTimeoutRef = useRef(null);
+  const progressTrackRef = useRef(null);
+  const fullscreenProgressTrackRef = useRef(null);
 
-  // Auto-hide controls after 3.5 seconds of playback
-  const triggerControlsAutoHide = useCallback(() => {
+  // Clear autohide timer
+  const clearControlsTimer = useCallback(() => {
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = null;
     }
+  }, []);
+
+  // Auto-hide controls after 3.5 seconds of active playback
+  const triggerControlsAutoHide = useCallback(() => {
+    clearControlsTimer();
     setShowControls(true);
     controlsTimeoutRef.current = setTimeout(() => {
       setShowControls(false);
     }, 3500);
-  }, []);
+  }, [clearControlsTimer]);
 
   useEffect(() => {
-    return () => {
-      if (controlsTimeoutRef.current) {
-        clearTimeout(controlsTimeoutRef.current);
-      }
-    };
-  }, []);
+    return () => clearControlsTimer();
+  }, [clearControlsTimer]);
+
+  // Reset when videoUrl changes
+  useEffect(() => {
+    setIsPlaying(false);
+    setIsPaused(false);
+    setIsEnded(false);
+    setIsLoading(false);
+    currentPositionRef.current = 0;
+    setProgress({ currentTime: 0, duration: 0 });
+    clearControlsTimer();
+  }, [videoUrl, clearControlsTimer]);
 
   const handleStartPlay = useCallback(() => {
     if (!videoUrl) return;
 
     if (!NativeVideo) {
-      // Fallback if native package is not yet built/installed
       Linking.openURL(videoUrl).catch(err => {
         Alert.alert('Cannot open video', err.message);
       });
@@ -95,72 +111,130 @@ export const InlineVideoPlayer = ({
     triggerControlsAutoHide();
   }, [videoUrl, triggerControlsAutoHide]);
 
-  const handleReplay = useCallback((e) => {
-    e?.stopPropagation?.();
-    setIsEnded(false);
-    setIsPaused(false);
-    setProgress(prev => ({ ...prev, currentTime: 0 }));
-    currentPositionRef.current = 0;
+  const handleReplay = useCallback(
+    e => {
+      e?.stopPropagation?.();
+      setIsEnded(false);
+      setIsPaused(false);
+      setProgress(prev => ({ ...prev, currentTime: 0 }));
+      currentPositionRef.current = 0;
 
-    const activeRef = isFullscreen ? fullscreenVideoRef : videoRef;
-    if (activeRef.current?.seek) {
-      activeRef.current.seek(0);
-    }
-
-    setTimeout(() => {
+      const activeRef = isFullscreen ? fullscreenVideoRef : videoRef;
       if (activeRef.current?.seek) {
         activeRef.current.seek(0);
       }
-      if (activeRef.current?.resume) {
-        try {
-          activeRef.current.resume();
-        } catch (_) {}
+
+      setTimeout(() => {
+        if (activeRef.current?.seek) {
+          activeRef.current.seek(0);
+        }
+        if (activeRef.current?.resume) {
+          try {
+            activeRef.current.resume();
+          } catch (_) {}
+        }
+      }, 60);
+
+      triggerControlsAutoHide();
+    },
+    [isFullscreen, triggerControlsAutoHide],
+  );
+
+  const handleTogglePlayPause = useCallback(
+    e => {
+      e?.stopPropagation?.();
+      if (!isPlaying) {
+        handleStartPlay();
+        return;
       }
-    }, 60);
+      if (isEnded) {
+        handleReplay(e);
+        return;
+      }
 
-    triggerControlsAutoHide();
-  }, [isFullscreen, triggerControlsAutoHide]);
+      setIsPaused(prev => {
+        const nextPaused = !prev;
+        if (nextPaused) {
+          clearControlsTimer();
+          setShowControls(true);
+        } else {
+          triggerControlsAutoHide();
+        }
+        return nextPaused;
+      });
+    },
+    [
+      isPlaying,
+      isEnded,
+      handleStartPlay,
+      handleReplay,
+      clearControlsTimer,
+      triggerControlsAutoHide,
+    ],
+  );
 
-  const handleTogglePlayPause = useCallback(() => {
-    if (!isPlaying) {
-      handleStartPlay();
+  const handleToggleControls = useCallback(() => {
+    if (isPaused || isEnded) {
+      setShowControls(true);
       return;
     }
-    if (isEnded) {
-      handleReplay();
-      return;
+    if (showControls) {
+      clearControlsTimer();
+      setShowControls(false);
+    } else {
+      triggerControlsAutoHide();
     }
-    setIsPaused(prev => !prev);
-    triggerControlsAutoHide();
-  }, [isPlaying, isEnded, handleStartPlay, handleReplay, triggerControlsAutoHide]);
+  }, [
+    isPaused,
+    isEnded,
+    showControls,
+    clearControlsTimer,
+    triggerControlsAutoHide,
+  ]);
 
-  const handleToggleMute = useCallback((e) => {
-    e?.stopPropagation?.();
-    setIsMuted(prev => !prev);
-    triggerControlsAutoHide();
-  }, [triggerControlsAutoHide]);
-
-  const handleOpenFullscreen = useCallback((e) => {
-    e?.stopPropagation?.();
-    if (!isPlaying) {
-      handleStartPlay();
-    }
-    setIsFullscreen(true);
-    triggerControlsAutoHide();
-  }, [isPlaying, handleStartPlay, triggerControlsAutoHide]);
-
-  const handleExitFullscreen = useCallback((e) => {
-    e?.stopPropagation?.();
-    setIsFullscreen(false);
-    setTimeout(() => {
-      if (videoRef.current?.seek && currentPositionRef.current > 0) {
-        videoRef.current.seek(currentPositionRef.current);
+  const handleToggleMute = useCallback(
+    e => {
+      e?.stopPropagation?.();
+      setIsMuted(prev => !prev);
+      if (!isPaused && !isEnded) {
+        triggerControlsAutoHide();
       }
-    }, 100);
-    triggerControlsAutoHide();
-  }, [triggerControlsAutoHide]);
+    },
+    [isPaused, isEnded, triggerControlsAutoHide],
+  );
 
-  const handleProgress = useCallback((data) => {
+  const handleOpenFullscreen = useCallback(
+    e => {
+      e?.stopPropagation?.();
+      if (!isPlaying) {
+        handleStartPlay();
+      }
+      clearControlsTimer();
+      setShowControls(true);
+      setIsFullscreen(true);
+    },
+    [isPlaying, handleStartPlay, clearControlsTimer],
+  );
+
+  const handleExitFullscreen = useCallback(
+    e => {
+      e?.stopPropagation?.();
+      setIsFullscreen(false);
+      clearControlsTimer();
+      setShowControls(true);
+      setTimeout(() => {
+        if (videoRef.current?.seek && currentPositionRef.current > 0) {
+          videoRef.current.seek(currentPositionRef.current);
+        }
+        if (!isPaused && !isEnded) {
+          triggerControlsAutoHide();
+        }
+      }, 80);
+    },
+    [clearControlsTimer, isPaused, isEnded, triggerControlsAutoHide],
+  );
+
+  const handleProgress = useCallback(data => {
     currentPositionRef.current = data.currentTime;
     setProgress(prev => ({
       currentTime: data.currentTime,
@@ -168,24 +242,66 @@ export const InlineVideoPlayer = ({
     }));
   }, []);
 
-  const handleLoad = useCallback((data) => {
-    setIsLoading(false);
-    setProgress(prev => ({
-      ...prev,
-      duration: data.duration || prev.duration,
-    }));
-  }, []);
+  const handleLoad = useCallback(
+    data => {
+      setIsLoading(false);
+      setProgress(prev => ({
+        ...prev,
+        duration: data.duration || prev.duration,
+      }));
+      if (currentPositionRef.current > 0) {
+        const activeRef = isFullscreen ? fullscreenVideoRef : videoRef;
+        activeRef.current?.seek?.(currentPositionRef.current);
+      }
+    },
+    [isFullscreen],
+  );
 
   const handleEnd = useCallback(() => {
     setIsEnded(true);
     setIsPaused(true);
     setShowControls(true);
-  }, []);
+    clearControlsTimer();
+  }, [clearControlsTimer]);
+
+  const handleSeekTouch = useCallback(
+    (event, isFullscreenTrack = false) => {
+      const trackRef = isFullscreenTrack
+        ? fullscreenProgressTrackRef
+        : progressTrackRef;
+      trackRef.current?.measureInWindow((x, _y, width) => {
+        if (!width || progress.duration <= 0) return;
+        const touchX = event.nativeEvent.pageX - x;
+        const fraction = Math.max(0, Math.min(1, touchX / width));
+        const targetTime = fraction * progress.duration;
+        currentPositionRef.current = targetTime;
+        setProgress(prev => ({ ...prev, currentTime: targetTime }));
+        const activeRef = isFullscreen ? fullscreenVideoRef : videoRef;
+        activeRef.current?.seek?.(targetTime);
+        if (!isPaused && !isEnded) {
+          triggerControlsAutoHide();
+        }
+      });
+    },
+    [
+      progress.duration,
+      isFullscreen,
+      isPaused,
+      isEnded,
+      triggerControlsAutoHide,
+    ],
+  );
 
   const progressPercent =
     progress.duration > 0
-      ? Math.min(100, Math.max(0, (progress.currentTime / progress.duration) * 100))
+      ? Math.min(
+          100,
+          Math.max(0, (progress.currentTime / progress.duration) * 100),
+        )
       : 0;
+
+  // Whether controls should be visible right now
+  const areControlsVisible = showControls || isPaused || isEnded;
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -194,7 +310,7 @@ export const InlineVideoPlayer = ({
         <Image
           source={{ uri: posterUrl }}
           style={styles.posterImage}
-          resizeMode="cover"
+          resizeMode={resizeMode}
         />
       ) : (
         <View style={[styles.posterImage, { backgroundColor: fallbackBg }]} />
@@ -202,18 +318,16 @@ export const InlineVideoPlayer = ({
 
       {/* 2. Video Player Engine (when activated) */}
       {isPlaying && NativeVideo ? (
-        <TouchableOpacity
-          activeOpacity={1}
-          style={StyleSheet.absoluteFill}
-          onPress={handleTogglePlayPause}
-        >
+        <View style={styles.playerWrapper}>
           <NativeVideo
             ref={videoRef}
             source={{ uri: videoUrl }}
             style={StyleSheet.absoluteFill}
-            resizeMode="contain"
+            resizeMode={resizeMode}
             paused={isPaused || isFullscreen}
             muted={isMuted}
+            useTextureView={Platform.OS === 'android'}
+            progressUpdateInterval={400}
             onLoad={handleLoad}
             onProgress={handleProgress}
             onEnd={handleEnd}
@@ -224,44 +338,56 @@ export const InlineVideoPlayer = ({
             }}
           />
 
+          {/* Transparent Backdrop to Toggle Controls On Tap */}
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={handleToggleControls}
+          />
+
           {/* Buffering Spinner */}
           {isLoading && (
-            <View style={styles.centerOverlay} pointerEvents="none">
+            <View style={styles.loadingOverlay} pointerEvents="none">
               <ActivityIndicator size="large" color="#A78BFA" />
             </View>
           )}
 
-          {/* Controls Overlay */}
-          {(showControls || isPaused || isEnded) && (
+          {/* Controls Overlay - Fills 100% of container with Top, Center & Bottom distribution */}
+          {areControlsVisible && (
             <View style={styles.controlsOverlay} pointerEvents="box-none">
-              {/* Top Bar: Title, Mute & Fullscreen Toggle */}
+              {/* Top Bar: Title, Mute/Unmute & Fullscreen Toggle */}
               <View style={styles.topControlsRow} pointerEvents="box-none">
                 <Text style={styles.videoTitleText} numberOfLines={1}>
                   {title}
                 </Text>
                 <View style={styles.topActionsGroup} pointerEvents="box-none">
+                  {/* Mute / Unmute Button */}
                   <TouchableOpacity
-                    style={[styles.controlIconBtn, isMuted && styles.controlIconBtnActive]}
+                    style={[
+                      styles.controlIconBtn,
+                      isMuted && styles.controlIconBtnActive,
+                    ]}
                     onPress={handleToggleMute}
                     activeOpacity={0.7}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <VolumeIcon size={15} color="#FFFFFF" />
+                    <VolumeIcon size={14} color="#FFFFFF" />
                     {isMuted && <View style={styles.muteSlash} />}
                   </TouchableOpacity>
 
+                  {/* Fullscreen Button */}
                   <TouchableOpacity
                     style={styles.controlIconBtn}
                     onPress={handleOpenFullscreen}
                     activeOpacity={0.7}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <FullscreenIcon size={15} color="#FFFFFF" />
+                    <FullscreenIcon size={14} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
               </View>
 
-              {/* Center Play / Pause / Replay Button */}
+              {/* Center Play / Pause / Replay Button - Vertically centered with flex: 1 */}
               <View style={styles.centerOverlay} pointerEvents="box-none">
                 {isEnded ? (
                   <View style={styles.centerActionWrapper}>
@@ -269,66 +395,86 @@ export const InlineVideoPlayer = ({
                       style={styles.centerActionCircle}
                       onPress={handleReplay}
                       activeOpacity={0.8}
-                      hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                      hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                     >
-                      <RefreshIcon size={24} color="#FFFFFF" />
+                      <RefreshIcon size={22} color="#FFFFFF" />
                     </TouchableOpacity>
                     <Text style={styles.replayLabelText}>Replay</Text>
                   </View>
                 ) : (
                   <TouchableOpacity
-                    style={styles.centerActionCircle}
+                    style={[
+                      styles.centerActionCircle,
+                      isPaused && styles.centerActionCirclePaused,
+                    ]}
                     onPress={handleTogglePlayPause}
                     activeOpacity={0.8}
-                    hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                    hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                   >
                     {isPaused ? (
-                      <PlayIcon size={22} color="#FFFFFF" />
+                      <PlayIcon size={20} color="#FFFFFF" />
                     ) : (
-                      <PauseIcon size={22} color="#FFFFFF" />
+                      <PauseIcon size={20} color="#FFFFFF" />
                     )}
                   </TouchableOpacity>
                 )}
               </View>
 
-              {/* Bottom Row: Time & Progress Track */}
+              {/* Bottom Row: Pinned to bottom of video container */}
               <View style={styles.bottomControlsCol} pointerEvents="box-none">
-                <View style={styles.bottomMetaRow} pointerEvents="box-none">
-                  <Text style={styles.timeText}>
-                    {formatTime(progress.currentTime)} / {formatTime(progress.duration)}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.fullscreenTextBtn}
-                    onPress={handleOpenFullscreen}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <FullscreenIcon size={13} color="#CBD5E1" />
-                    <Text style={styles.fullscreenLabel}>Fullscreen</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.progressBarTrack} pointerEvents="none">
-                  <View
-                    style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
-                  />
+                <View
+                  ref={progressTrackRef}
+                  style={styles.progressTouchArea}
+                  onStartShouldSetResponder={() => true}
+                  onMoveShouldSetResponder={() => true}
+                  onResponderGrant={e => handleSeekTouch(e, false)}
+                  onResponderMove={e => handleSeekTouch(e, false)}
+                >
+                  <View style={styles.progressBarTrack} pointerEvents="none">
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        { width: `${progressPercent}%` },
+                      ]}
+                    />
+                  </View>
                 </View>
               </View>
             </View>
           )}
-        </TouchableOpacity>
+        </View>
       ) : (
-        /* 3. Idle Poster Overlay with Play Circle (Initial State) */
+        /* 3. Idle Poster Overlay with Center Alignment */
         <TouchableOpacity
-          style={StyleSheet.absoluteFill}
+          style={styles.idleTouchable}
           activeOpacity={0.88}
           onPress={handleStartPlay}
         >
-          {/* Dark Overlay with Center Play Circle */}
-          <View style={styles.idleOverlay}>
+          {/* Top Preview Bar with Title & Fullscreen option even before playing */}
+          <View style={styles.idleTopRow} pointerEvents="box-none">
+            {title ? (
+              <Text style={styles.videoTitleText} numberOfLines={1}>
+                {title}
+              </Text>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
+            <TouchableOpacity
+              style={styles.controlIconBtn}
+              onPress={handleOpenFullscreen}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <FullscreenIcon size={14} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Centered Play Button & Label */}
+          <View style={styles.idleCenterContent} pointerEvents="none">
             <View style={styles.playCircle}>
-              <PlayIcon size={20} color="#FFFFFF" />
+              <PlayIcon size={22} color="#FFFFFF" />
             </View>
-            <Text style={styles.playText}>Watch Video Preview</Text>
+            <Text style={styles.playText}>Watch Video</Text>
           </View>
         </TouchableOpacity>
       )}
@@ -341,132 +487,173 @@ export const InlineVideoPlayer = ({
         statusBarTranslucent
         onRequestClose={handleExitFullscreen}
       >
-        <StatusBar barStyle="light-content" backgroundColor="#000000" translucent />
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor="#000000"
+          translucent
+        />
         <View style={styles.fullscreenContainer}>
+          {NativeVideo && (
+            <NativeVideo
+              ref={fullscreenVideoRef}
+              source={{ uri: videoUrl }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="contain"
+              paused={isPaused}
+              muted={isMuted}
+              useTextureView={Platform.OS === 'android'}
+              progressUpdateInterval={400}
+              onLoad={data => {
+                if (currentPositionRef.current > 0) {
+                  fullscreenVideoRef.current?.seek?.(
+                    currentPositionRef.current,
+                  );
+                }
+                handleLoad(data);
+              }}
+              onProgress={handleProgress}
+              onEnd={handleEnd}
+              onError={() => {
+                setIsFullscreen(false);
+                Alert.alert(
+                  'Video Error',
+                  'Unable to play this video in full screen.',
+                );
+              }}
+            />
+          )}
+
+          {/* Transparent Backdrop to Toggle Fullscreen Controls */}
           <TouchableOpacity
-            activeOpacity={1}
             style={StyleSheet.absoluteFill}
-            onPress={handleTogglePlayPause}
-          >
-            {NativeVideo && (
-              <NativeVideo
-                ref={fullscreenVideoRef}
-                source={{
-                  uri: videoUrl,
-                  startPosition: Math.floor((currentPositionRef.current || 0) * 1000),
-                }}
-                style={StyleSheet.absoluteFill}
-                resizeMode="contain"
-                paused={isPaused}
-                muted={isMuted}
-                onLoad={(data) => {
-                  if (currentPositionRef.current > 0) {
-                    fullscreenVideoRef.current?.seek?.(currentPositionRef.current);
-                  }
-                  handleLoad(data);
-                }}
-                onProgress={handleProgress}
-                onEnd={handleEnd}
-                onError={() => {
-                  setIsFullscreen(false);
-                  Alert.alert('Video Error', 'Unable to play this video stream in full screen.');
-                }}
-              />
-            )}
+            activeOpacity={1}
+            onPress={handleToggleControls}
+          />
 
-            {/* Fullscreen Buffering Spinner */}
-            {isLoading && (
-              <View style={styles.centerOverlay} pointerEvents="none">
-                <ActivityIndicator size="large" color="#A78BFA" />
-              </View>
-            )}
+          {/* Fullscreen Buffering Spinner */}
+          {isLoading && (
+            <View style={styles.loadingOverlay} pointerEvents="none">
+              <ActivityIndicator size="large" color="#A78BFA" />
+            </View>
+          )}
 
-            {/* Fullscreen Controls Overlay */}
-            {(showControls || isPaused || isEnded) && (
-              <View style={styles.fullscreenControlsOverlay} pointerEvents="box-none">
-                {/* Top Row: Title, Mute & Exit Fullscreen */}
-                <View style={styles.fullscreenTopRow} pointerEvents="box-none">
-                  <Text style={styles.fullscreenTitleText} numberOfLines={1}>
-                    {title}
-                  </Text>
-                  <View style={styles.topActionsGroup} pointerEvents="box-none">
-                    <TouchableOpacity
-                      style={[styles.controlIconBtn, isMuted && styles.controlIconBtnActive]}
-                      onPress={handleToggleMute}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <VolumeIcon size={18} color="#FFFFFF" />
-                      {isMuted && <View style={styles.muteSlash} />}
-                    </TouchableOpacity>
+          {/* Fullscreen Controls Overlay */}
+          {areControlsVisible && (
+            <View
+              style={styles.fullscreenControlsOverlay}
+              pointerEvents="box-none"
+            >
+              {/* Top Row: Title, Mute & Exit Fullscreen */}
+              <View style={styles.fullscreenTopRow} pointerEvents="box-none">
+                <Text style={styles.fullscreenTitleText} numberOfLines={1}>
+                  {title}
+                </Text>
+                <View style={styles.topActionsGroup} pointerEvents="box-none">
+                  {/* Mute / Unmute Button */}
+                  <TouchableOpacity
+                    style={[
+                      styles.controlIconBtn,
+                      isMuted && styles.controlIconBtnActive,
+                    ]}
+                    onPress={handleToggleMute}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <VolumeIcon size={16} color="#FFFFFF" />
+                    {isMuted && <View style={styles.muteSlash} />}
+                  </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={styles.exitFullscreenBtn}
-                      onPress={handleExitFullscreen}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <ExitFullscreenIcon size={18} color="#FFFFFF" />
-                      <Text style={styles.exitFullscreenText}>Exit</Text>
-                    </TouchableOpacity>
-                  </View>
+                  {/* Exit Fullscreen Button */}
+                  <TouchableOpacity
+                    style={styles.exitFullscreenBtn}
+                    onPress={handleExitFullscreen}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <ExitFullscreenIcon size={16} color="#FFFFFF" />
+                    <Text style={styles.exitFullscreenText}>Exit</Text>
+                  </TouchableOpacity>
                 </View>
+              </View>
 
-                {/* Center Play / Pause / Replay Button */}
-                <View style={styles.centerOverlay} pointerEvents="box-none">
-                  {isEnded ? (
-                    <View style={styles.centerActionWrapper}>
-                      <TouchableOpacity
-                        style={[styles.centerActionCircle, styles.fullscreenCenterCircle]}
-                        onPress={handleReplay}
-                        activeOpacity={0.8}
-                        hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-                      >
-                        <RefreshIcon size={28} color="#FFFFFF" />
-                      </TouchableOpacity>
-                      <Text style={styles.replayLabelText}>Replay Video</Text>
-                    </View>
-                  ) : (
+              {/* Fullscreen Center Play / Pause / Replay Button */}
+              <View
+                style={styles.fullscreenCenterOverlay}
+                pointerEvents="box-none"
+              >
+                {isEnded ? (
+                  <View style={styles.centerActionWrapper}>
                     <TouchableOpacity
-                      style={[styles.centerActionCircle, styles.fullscreenCenterCircle]}
-                      onPress={handleTogglePlayPause}
+                      style={[
+                        styles.centerActionCircle,
+                        styles.fullscreenCenterCircle,
+                      ]}
+                      onPress={handleReplay}
                       activeOpacity={0.8}
                       hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
                     >
-                      {isPaused ? (
-                        <PlayIcon size={28} color="#FFFFFF" />
-                      ) : (
-                        <PauseIcon size={28} color="#FFFFFF" />
-                      )}
+                      <RefreshIcon size={28} color="#FFFFFF" />
                     </TouchableOpacity>
-                  )}
+                    <Text style={styles.replayLabelText}>Replay</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.centerActionCircle,
+                      styles.fullscreenCenterCircle,
+                      isPaused && styles.centerActionCirclePaused,
+                    ]}
+                    onPress={handleTogglePlayPause}
+                    activeOpacity={0.8}
+                    hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                  >
+                    {isPaused ? (
+                      <PlayIcon size={26} color="#FFFFFF" />
+                    ) : (
+                      <PauseIcon size={26} color="#FFFFFF" />
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Fullscreen Bottom Row: Time & Interactive Seek Bar */}
+              <View style={styles.fullscreenBottomCol} pointerEvents="box-none">
+                <View style={styles.bottomMetaRow} pointerEvents="box-none">
+                  <Text style={styles.fullscreenTimeText}>
+                    {formatTime(progress.currentTime)} /{' '}
+                    {formatTime(progress.duration)}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.fullscreenExitSmallBtn}
+                    onPress={handleExitFullscreen}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <ExitFullscreenIcon size={14} color="#FFFFFF" />
+                  </TouchableOpacity>
                 </View>
 
-                {/* Bottom Row: Fullscreen Time & Progress Track */}
-                <View style={styles.fullscreenBottomCol} pointerEvents="box-none">
-                  <View style={styles.bottomMetaRow} pointerEvents="box-none">
-                    <Text style={styles.fullscreenTimeText}>
-                      {formatTime(progress.currentTime)} / {formatTime(progress.duration)}
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.fullscreenTextBtn}
-                      onPress={handleExitFullscreen}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <ExitFullscreenIcon size={15} color="#CBD5E1" />
-                      <Text style={styles.fullscreenLabel}>Exit Fullscreen</Text>
-                    </TouchableOpacity>
-                  </View>
+                {/* Fullscreen Interactive Seek Bar */}
+                <View
+                  ref={fullscreenProgressTrackRef}
+                  style={styles.progressTouchArea}
+                  onStartShouldSetResponder={() => true}
+                  onMoveShouldSetResponder={() => true}
+                  onResponderGrant={e => handleSeekTouch(e, true)}
+                  onResponderMove={e => handleSeekTouch(e, true)}
+                >
                   <View style={styles.progressBarTrack} pointerEvents="none">
                     <View
-                      style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
+                      style={[
+                        styles.progressBarFill,
+                        { width: `${progressPercent}%` },
+                      ]}
                     />
                   </View>
                 </View>
               </View>
-            )}
-          </TouchableOpacity>
+            </View>
+          )}
         </View>
       </Modal>
     </View>
@@ -476,7 +663,7 @@ export const InlineVideoPlayer = ({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    height: 260,
+    height: 220,
     borderRadius: 14,
     overflow: 'hidden',
     position: 'relative',
@@ -490,24 +677,49 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  idleOverlay: {
+  playerWrapper: {
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
-    top: 0,
     bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  idleTouchable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    alignItems: 'center',
+  },
+  idleTopRow: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 3,
+  },
+  idleCenterContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   playCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#7C3AED',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingLeft: 3, // Optical compensation for triangular play icon centroid
     shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
@@ -515,17 +727,34 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   playText: {
+    marginTop: 8,
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: Fonts.family.bold,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   controlsOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    flexDirection: 'column',
     justifyContent: 'space-between',
-    padding: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.38)',
+    zIndex: 2,
+    elevation: 2,
   },
   topControlsRow: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -533,7 +762,7 @@ const styles = StyleSheet.create({
   topActionsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   videoTitleText: {
     color: '#FFFFFF',
@@ -554,7 +783,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   controlIconBtnActive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+    backgroundColor: 'rgba(239, 68, 68, 0.85)',
+    borderColor: 'rgba(239, 68, 68, 1)',
   },
   muteSlash: {
     position: 'absolute',
@@ -563,21 +793,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     transform: [{ rotate: '45deg' }],
   },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
   centerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
   centerActionWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 4,
   },
   centerActionCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(124, 58, 237, 0.9)',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(124, 58, 237, 0.92)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
@@ -586,9 +829,12 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 6,
   },
+  centerActionCirclePaused: {
+    paddingLeft: 3, // Optical centering for play triangle
+  },
   replayLabelText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: Fonts.family.semiBold,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
@@ -599,32 +845,38 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   bottomMetaRow: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 2,
     paddingHorizontal: 2,
   },
   timeText: {
     color: '#CBD5E1',
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: Fonts.family.medium,
   },
   fullscreenTextBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   fullscreenLabel: {
     color: '#CBD5E1',
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: Fonts.family.medium,
+  },
+  progressTouchArea: {
+    width: '100%',
+    height: 16,
+    justifyContent: 'center',
   },
   progressBarTrack: {
     width: '100%',
@@ -646,14 +898,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fullscreenControlsOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    flexDirection: 'column',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 40,
     paddingBottom: 28,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.42)',
+    zIndex: 2,
   },
   fullscreenTopRow: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -678,6 +939,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontFamily: Fonts.family.medium,
+  },
+  fullscreenCenterOverlay: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fullscreenCenterCircle: {
     width: 60,

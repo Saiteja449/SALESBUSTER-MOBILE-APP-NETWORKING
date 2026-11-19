@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
   },
   videoModalBanner: {
     width: '100%',
-    height: 140,
+    height: 200,
     borderRadius: 14,
     overflow: 'hidden',
     position: 'relative',

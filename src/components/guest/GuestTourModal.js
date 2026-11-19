@@ -22,6 +22,8 @@ import Svg, {
 } from 'react-native-svg';
 import Text from '../common/AppText';
 import { Fonts } from '../../styles/Fonts';
+import { InlineVideoPlayer } from '../common/InlineVideoPlayer';
+import { getFullMediaUrl } from '../../utils/constants';
 
 // Assets
 const STEP_1_HERO = require('../../../assets/images/guide-step-1.png');
@@ -332,7 +334,7 @@ const TOUR_STEPS = [
 // Main Component
 // ---------------------------------------------------------------------------
 
-const GuestTourModal = ({ visible, onClose, onComplete }) => {
+const GuestTourModal = ({ visible, onClose, onComplete, tourVideoConfig }) => {
   const { width, height } = useWindowDimensions();
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -470,6 +472,32 @@ const GuestTourModal = ({ visible, onClose, onComplete }) => {
 
   // Render Themed Hero Card for Steps 1-4
   const renderHero = () => {
+    // Check if SuperAdmin has configured a customized walkthrough video
+    const isCustomVideoActive = Boolean(
+      tourVideoConfig?.isActive !== false &&
+      tourVideoConfig?.videoUrl &&
+      step.stepIndex === (tourVideoConfig?.stepIndex ?? 0)
+    );
+
+    if (isCustomVideoActive) {
+      return (
+        <View style={styles.heroWrapper}>
+          <InlineVideoPlayer
+            videoUrl={getFullMediaUrl(tourVideoConfig.videoUrl)}
+            posterUrl={
+              tourVideoConfig.bannerImageUrl
+                ? getFullMediaUrl(tourVideoConfig.bannerImageUrl)
+                : ''
+            }
+            fallbackBg={tourVideoConfig?.fallbackBg || '#1E1D36'}
+            title={tourVideoConfig?.title || step.title}
+            containerStyle={styles.heroVideoContainer}
+            resizeMode="cover"
+          />
+        </View>
+      );
+    }
+
     if (step.heroType === 'image') {
       return (
         <View style={styles.heroWrapper}>
@@ -607,8 +635,16 @@ const GuestTourModal = ({ visible, onClose, onComplete }) => {
                 {renderHero()}
 
                 {/* 2. Title & Subtitle */}
-                <Text style={styles.titleText}>{step.title}</Text>
-                <Text style={styles.subtitleText}>{step.subtitle}</Text>
+                <Text style={styles.titleText}>
+                  {step.stepIndex === (tourVideoConfig?.stepIndex ?? 0) && tourVideoConfig?.title
+                    ? tourVideoConfig.title
+                    : step.title}
+                </Text>
+                <Text style={styles.subtitleText}>
+                  {step.stepIndex === (tourVideoConfig?.stepIndex ?? 0) && tourVideoConfig?.subtitle
+                    ? tourVideoConfig.subtitle
+                    : step.subtitle}
+                </Text>
 
                 {/* 3. Feature Card (Dark Box with 3 Rows) */}
                 <View
@@ -778,7 +814,7 @@ const styles = StyleSheet.create({
   },
   heroWrapper: {
     width: '100%',
-    height: 128,
+    height: 140,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#1E1D36',
@@ -787,6 +823,14 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  heroVideoContainer: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+    marginTop: 0,
+    marginBottom: 0,
+    borderWidth: 0,
   },
   heroImage: {
     width: '100%',

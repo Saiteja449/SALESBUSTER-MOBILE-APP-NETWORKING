@@ -463,6 +463,27 @@ export const eventService = {
   },
 
   /**
+   * Fetch app walkthrough guide video managed by Super Admin (for Info Popup)
+   */
+  async getAppGuideVideo(token) {
+    try {
+      const activeToken = await resolveToken(token);
+      const headers = { 'Content-Type': 'application/json' };
+      if (activeToken) {
+        headers.Authorization = `Bearer ${activeToken}`;
+      }
+      const res = await axios.get(API_ENDPOINTS.APP_GUIDE_VIDEO, {
+        headers,
+        timeout: 8000,
+      });
+      return res.data;
+    } catch (err) {
+      console.warn('[eventService] getAppGuideVideo error:', err.message);
+      return { success: false, fallback: true, error: err.message };
+    }
+  },
+
+  /**
    * Update an existing contact saved under an event
    */
   async updateEventContact(token, eventId, contactId, contactData) {

@@ -54,7 +54,9 @@ export const GuestAccountScreen = ({ navigation }) => {
     setEditCity(user?.city || '');
     setEditRole(user?.role || '');
     const currentEmail =
-      user?.email && !user.email.includes('@guest.salesbuster.ai') ? user.email : '';
+      user?.email && !user.email.includes('@guest.salesbuster.ai')
+        ? user.email
+        : '';
     setEditEmail(currentEmail);
     setFormError('');
     setIsEditModalVisible(true);
@@ -90,9 +92,14 @@ export const GuestAccountScreen = ({ navigation }) => {
 
       if (res?.success) {
         setIsEditModalVisible(false);
-        Alert.alert('Profile Updated', 'Your profile details have been saved successfully.');
+        Alert.alert(
+          'Profile Updated',
+          'Your profile details have been saved successfully.',
+        );
       } else {
-        setFormError(res?.message || 'Failed to update profile. Please try again.');
+        setFormError(
+          res?.message || 'Failed to update profile. Please try again.',
+        );
       }
     } catch (err) {
       setIsSaving(false);
@@ -113,7 +120,7 @@ export const GuestAccountScreen = ({ navigation }) => {
             await logout();
           },
         },
-      ]
+      ],
     );
   };
 
@@ -130,19 +137,19 @@ export const GuestAccountScreen = ({ navigation }) => {
             await logout();
           },
         },
-      ]
+      ],
     );
   };
 
   const handleOpenPrivacyPolicy = async () => {
-    const url = 'https://salesbuster.ai/#/privacy';
+    const url = 'https://salesbuster.ai/privacy-policy.html';
     try {
       await Linking.openURL(url);
     } catch (err) {
       console.warn('Could not open privacy policy URL:', err);
       Alert.alert(
         'Unable to Open Browser',
-        'Please visit https://salesbuster.ai/#/privacy in your web browser.'
+        'Please visit https://salesbuster.ai/privacy-policy.html in your web browser.',
       );
     }
   };
@@ -175,7 +182,10 @@ export const GuestAccountScreen = ({ navigation }) => {
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={['top', 'left', 'right', 'bottom']}
+    >
       <StatusBar barStyle="light-content" backgroundColor="#0B0A1F" />
 
       {/* 1. Header with Back button and Edit Profile button */}
@@ -207,7 +217,8 @@ export const GuestAccountScreen = ({ navigation }) => {
         <View style={styles.profileHeader}>
           <View style={styles.avatarWrap}>
             <Text style={styles.avatarText}>
-              {user?.avatar || (user?.name ? user.name.slice(0, 2).toUpperCase() : 'G')}
+              {user?.avatar ||
+                (user?.name ? user.name.slice(0, 2).toUpperCase() : 'G')}
             </Text>
           </View>
           <Text style={styles.profileName}>{user?.name || 'Guest User'}</Text>
@@ -241,7 +252,9 @@ export const GuestAccountScreen = ({ navigation }) => {
             </View>
             <View style={styles.infoCol}>
               <Text style={styles.infoLabel}>Full Name</Text>
-              <Text style={styles.infoValue}>{user?.name || 'Not provided'}</Text>
+              <Text style={styles.infoValue}>
+                {user?.name || 'Not provided'}
+              </Text>
             </View>
           </View>
 
@@ -253,7 +266,11 @@ export const GuestAccountScreen = ({ navigation }) => {
             <View style={styles.infoCol}>
               <Text style={styles.infoLabel}>Phone Number</Text>
               <Text style={styles.infoValue}>
-                {user?.phone ? (user.phone.startsWith('+91') ? user.phone : `+91 ${user.phone}`) : 'Not provided'}
+                {user?.phone
+                  ? user.phone.startsWith('+91')
+                    ? user.phone
+                    : `+91 ${user.phone}`
+                  : 'Not provided'}
               </Text>
             </View>
           </View>
@@ -266,7 +283,9 @@ export const GuestAccountScreen = ({ navigation }) => {
             <View style={styles.infoCol}>
               <Text style={styles.infoLabel}>Email Address</Text>
               <Text style={styles.infoValue}>
-                {user?.email && !user.email.includes('@guest.salesbuster.ai') ? user.email : 'Not provided (Optional)'}
+                {user?.email && !user.email.includes('@guest.salesbuster.ai')
+                  ? user.email
+                  : 'Not provided (Optional)'}
               </Text>
             </View>
           </View>
@@ -279,7 +298,9 @@ export const GuestAccountScreen = ({ navigation }) => {
             <View style={styles.infoCol}>
               <Text style={styles.infoLabel}>Company / Workspace</Text>
               <Text style={styles.infoValue}>
-                {user?.companyName || user?.organization?.name || 'SalesBuster Workspace'}
+                {user?.companyName ||
+                  user?.organization?.name ||
+                  'SalesBuster Workspace'}
               </Text>
             </View>
           </View>
@@ -291,7 +312,9 @@ export const GuestAccountScreen = ({ navigation }) => {
             </View>
             <View style={styles.infoCol}>
               <Text style={styles.infoLabel}>Role / Designation</Text>
-              <Text style={styles.infoValue}>{user?.role || 'Not provided (Optional)'}</Text>
+              <Text style={styles.infoValue}>
+                {user?.role || 'Not provided (Optional)'}
+              </Text>
             </View>
           </View>
 
@@ -302,7 +325,9 @@ export const GuestAccountScreen = ({ navigation }) => {
             </View>
             <View style={styles.infoCol}>
               <Text style={styles.infoLabel}>City</Text>
-              <Text style={styles.infoValue}>{user?.city || 'Not provided (Optional)'}</Text>
+              <Text style={styles.infoValue}>
+                {user?.city || 'Not provided (Optional)'}
+              </Text>
             </View>
           </View>
         </View>
@@ -317,12 +342,17 @@ export const GuestAccountScreen = ({ navigation }) => {
             onPress={handleOpenPrivacyPolicy}
             activeOpacity={0.7}
           >
-            <View style={[styles.iconCircle, { backgroundColor: 'rgba(124, 58, 237, 0.25)' }]}>
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: 'rgba(124, 58, 237, 0.25)' },
+              ]}
+            >
               <ShieldCheckIcon size={17} color="#C084FC" />
             </View>
             <View style={styles.actionCol}>
               <Text style={styles.actionTitle}>Privacy Policy</Text>
-              <Text style={styles.actionDesc}>https://salesbuster.ai/#/privacy</Text>
+              {/* <Text style={styles.actionDesc}>https://salesbuster.ai/privacy-policy.html</Text> */}
             </View>
             <ChevronRightIcon size={16} color="#8F90A6" />
           </TouchableOpacity>
@@ -333,12 +363,19 @@ export const GuestAccountScreen = ({ navigation }) => {
             onPress={() => navigation?.navigate('PermissionSetup')}
             activeOpacity={0.7}
           >
-            <View style={[styles.iconCircle, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: 'rgba(16, 185, 129, 0.2)' },
+              ]}
+            >
               <ShieldCheckIcon size={17} color="#34D399" />
             </View>
             <View style={styles.actionCol}>
               <Text style={styles.actionTitle}>Device Permissions</Text>
-              <Text style={styles.actionDesc}>Manage Camera, Mic & Notifications</Text>
+              <Text style={styles.actionDesc}>
+                Manage Camera, Mic & Notifications
+              </Text>
             </View>
             <ChevronRightIcon size={16} color="#8F90A6" />
           </TouchableOpacity>
@@ -352,7 +389,9 @@ export const GuestAccountScreen = ({ navigation }) => {
             </View>
             <View style={styles.upgradeHeaderCol}>
               <Text style={styles.upgradeTitle}>Upgrade to Full CRM</Text>
-              <Text style={styles.upgradeSubtitle}>Unlock enterprise sales automation</Text>
+              <Text style={styles.upgradeSubtitle}>
+                Unlock enterprise sales automation
+              </Text>
             </View>
           </View>
 
@@ -376,7 +415,11 @@ export const GuestAccountScreen = ({ navigation }) => {
 
           <View style={styles.upgradeActionBox}>
             <Text style={styles.upgradeNotice}>
-              Visit <Text style={{ color: '#C084FC', fontFamily: Fonts.family.bold }}>salesbuster.ai</Text> to upgrade your workspace to full CRM.
+              Visit{' '}
+              <Text style={{ color: '#C084FC', fontFamily: Fonts.family.bold }}>
+                salesbuster.ai
+              </Text>{' '}
+              to upgrade your workspace to full CRM.
             </Text>
           </View>
         </View>
@@ -424,7 +467,9 @@ export const GuestAccountScreen = ({ navigation }) => {
                   </View>
                   <View>
                     <Text style={styles.modalTitle}>Edit Profile</Text>
-                    <Text style={styles.modalSubtitle}>Update your personal and business details</Text>
+                    <Text style={styles.modalSubtitle}>
+                      Update your personal and business details
+                    </Text>
                   </View>
                 </View>
                 <TouchableOpacity
@@ -537,12 +582,19 @@ export const GuestAccountScreen = ({ navigation }) => {
                 <View style={styles.readOnlyPhoneBox}>
                   <PhoneIcon size={15} color="#818CF8" />
                   <View style={styles.readOnlyPhoneCol}>
-                    <Text style={styles.readOnlyPhoneLabel}>Registered Phone</Text>
+                    <Text style={styles.readOnlyPhoneLabel}>
+                      Registered Phone
+                    </Text>
                     <Text style={styles.readOnlyPhoneValue}>
-                      {user?.phone ? (user.phone.startsWith('+91') ? user.phone : `+91 ${user.phone}`) : 'Not available'}
+                      {user?.phone
+                        ? user.phone.startsWith('+91')
+                          ? user.phone
+                          : `+91 ${user.phone}`
+                        : 'Not available'}
                     </Text>
                     <Text style={styles.readOnlyPhoneHint}>
-                      Phone number is permanently linked to OTP authentication and cannot be edited.
+                      Phone number is permanently linked to OTP authentication
+                      and cannot be edited.
                     </Text>
                   </View>
                 </View>
@@ -560,12 +612,18 @@ export const GuestAccountScreen = ({ navigation }) => {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.modalSaveBtn, isSaving && styles.modalSaveBtnDisabled]}
+                  style={[
+                    styles.modalSaveBtn,
+                    isSaving && styles.modalSaveBtnDisabled,
+                  ]}
                   onPress={handleSaveProfile}
                   disabled={isSaving}
                   activeOpacity={0.7}
                 >
-                  <BrandGradientBackground id="edit_profile_save_grad" borderRadius={14} />
+                  <BrandGradientBackground
+                    id="edit_profile_save_grad"
+                    borderRadius={14}
+                  />
                   {isSaving ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (

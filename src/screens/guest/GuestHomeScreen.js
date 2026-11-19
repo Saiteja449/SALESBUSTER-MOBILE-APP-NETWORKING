@@ -860,6 +860,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const [isProductDetailVisible, setIsProductDetailVisible] = useState(false);
   const [isAccountModalVisible, setIsAccountModalVisible] = useState(false);
   const [productsList, setProductsList] = useState(PRODUCTS_CATALOG);
+  const [tourVideoConfig, setTourVideoConfig] = useState(null);
 
   // Helper to determine if product media is video
   const isProductVideo = (prod) => {
@@ -871,7 +872,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     return /\.(mp4|webm|mov|mkv|avi|m3u8)(\?.*)?$/i.test(url);
   };
 
-  // Fetch dynamic showcase products from Super Admin
+  // Fetch dynamic showcase products & tour video config from Super Admin
   useEffect(() => {
     let isMounted = true;
     const fetchShowcase = async () => {
@@ -884,7 +885,18 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         // Fallback to PRODUCTS_CATALOG
       }
     };
+    const fetchGuideVideo = async () => {
+      try {
+        const guideRes = await eventService.getAppGuideVideo(token);
+        if (isMounted && guideRes?.success && guideRes.data) {
+          setTourVideoConfig(guideRes.data);
+        }
+      } catch (err) {
+        // Fallback gracefully
+      }
+    };
     fetchShowcase();
+    fetchGuideVideo();
     return () => {
       isMounted = false;
     };
@@ -3865,6 +3877,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         visible={isTourModalVisible}
         onClose={() => setIsTourModalVisible(false)}
         onComplete={handleTourComplete}
+        tourVideoConfig={tourVideoConfig}
       />
 
       {/* 2. GUEST ACTIONABLE GUIDANCE (6-STEP ONBOARDING TOUR) */}
@@ -5689,7 +5702,7 @@ const styles = StyleSheet.create({
   },
   videoBannerContainer: {
     width: '100%',
-    height: 140,
+    height: 220,
     borderRadius: 14,
     overflow: 'hidden',
     position: 'relative',

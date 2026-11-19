@@ -1,4 +1,4 @@
-export const BASE_URL = 'https://betaapi.salesbuster.ai/api';
+export const BASE_URL = 'https://api.salesbuster.ai/api';
 export const SERVER_ORIGIN = BASE_URL.replace(/\/api\/?$/, '');
 
 /**
@@ -47,6 +47,7 @@ export const API_ENDPOINTS = {
     BY_USER: salespersonId => `${BASE_URL}/analytics/${salespersonId}`,
   },
   SHOWCASE_SERVICES: `${BASE_URL}/showcase-services`,
+  APP_GUIDE_VIDEO: `${BASE_URL}/app-guide-video`,
   ORGANIZATION: {
     SERVICES: `${BASE_URL}/organization/services`,
     SETTINGS: `${BASE_URL}/organization/settings`,

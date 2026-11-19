@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { API_ENDPOINTS } from './constants.js';
 
-export const formatDuration = (seconds) => {
+export const formatDuration = seconds => {
   if (!seconds || seconds === 0) return '0s';
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
@@ -11,14 +11,14 @@ export const formatDuration = (seconds) => {
   return `${secs}s`;
 };
 
-export const formatTalkTime = (seconds) => {
+export const formatTalkTime = seconds => {
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   if (hrs > 0) return `${hrs}h ${mins}m`;
   return `${mins} min`;
 };
 
-export const formatDate = (dateStr) => {
+export const formatDate = dateStr => {
   const date = new Date(dateStr);
   const today = new Date();
   const yesterday = new Date(today);
@@ -34,7 +34,7 @@ export const formatDate = (dateStr) => {
   });
 };
 
-export const formatTime = (dateStr) => {
+export const formatTime = dateStr => {
   const date = new Date(dateStr);
   return date.toLocaleTimeString('en-IN', {
     hour: '2-digit',
@@ -43,7 +43,7 @@ export const formatTime = (dateStr) => {
   });
 };
 
-export const formatPhone = (phone) => {
+export const formatPhone = phone => {
   if (!phone) return '';
   const cleaned = phone.replace(/\D/g, '');
   if (cleaned.length === 10) {
@@ -52,17 +52,17 @@ export const formatPhone = (phone) => {
   return phone;
 };
 
-export const getInitials = (name) => {
+export const getInitials = name => {
   if (!name) return '?';
   return name
     .split(' ')
-    .map((n) => n[0])
+    .map(n => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
 };
 
-export const getCallTypeColor = (type) => {
+export const getCallTypeColor = type => {
   const map = {
     incoming: '#2563EB',
     outgoing: '#16A34A',
@@ -73,7 +73,7 @@ export const getCallTypeColor = (type) => {
   return map[type] || '#64748B';
 };
 
-export const getPriorityColor = (priority) => {
+export const getPriorityColor = priority => {
   const map = {
     high: '#DC2626',
     medium: '#F59E0B',
@@ -82,7 +82,7 @@ export const getPriorityColor = (priority) => {
   return map[priority] || '#64748B';
 };
 
-export const getAvatarColor = (index) => {
+export const getAvatarColor = index => {
   const colors = [
     '#2563EB',
     '#16A34A',
@@ -105,7 +105,7 @@ export const generateId = () =>
  */
 export const getFriendlyErrorMessage = (
   err,
-  fallbackMessage = 'Unable to complete request. Please try again.'
+  fallbackMessage = 'Unable to complete request. Please try again.',
 ) => {
   if (!err) return fallbackMessage;
 
@@ -238,7 +238,10 @@ export const populateWhatsAppMessage = (
   return template
     .replace(/\{there name\}|\{there_name\}|\{name\}/gi, contactName || 'there')
     .replace(/\{company\}/gi, contactCompany || 'your company')
-    .replace(/\{event name\}|\{event_name\}|\{event\}/gi, eventName || 'the event')
+    .replace(
+      /\{event name\}|\{event_name\}|\{event\}/gi,
+      eventName || 'the event',
+    )
     .replace(/\{venue\}/gi, venue || '')
     .replace(/\{your_name\}|\{your name\}/gi, yourName || '')
     .replace(/\{company_name\}|\{company name\}/gi, companyName || '');
@@ -271,7 +274,7 @@ export const shortenUrl = async (rawUrl, token = null) => {
     const res = await axios.post(
       API_ENDPOINTS.SHORT_URL.SHORTEN,
       { url: trimmed },
-      { headers, timeout: 4000 }
+      { headers, timeout: 4000 },
     );
 
     if (res.data?.success && res.data?.shortUrl) {
@@ -280,7 +283,10 @@ export const shortenUrl = async (rawUrl, token = null) => {
       return shortUrl;
     }
   } catch (err) {
-    console.warn('[formatters] shortenUrl fallback to original:', err?.message || err);
+    console.warn(
+      '[formatters] shortenUrl fallback to original:',
+      err?.message || err,
+    );
   }
 
   return trimmed;
@@ -289,12 +295,8 @@ export const shortenUrl = async (rawUrl, token = null) => {
 /**
  * Formats a clean, executive business info tag for the link.
  */
-export const formatBusinessInfoTag = ({ companyName = '' } = {}) => {
-  const company = (companyName || '').trim();
-  if (company && !company.includes("'s Workspace")) {
-    return `📁 *About ${company}:*\nView our company profile & catalog:`;
-  }
-  return `📁 *Business Profile & Catalog:*\nView our company information:`;
+export const formatBusinessInfoTag = () => {
+  return `📁 *company details:*`;
 };
 
 /**
@@ -304,7 +306,7 @@ export const formatBusinessInfoTag = ({ companyName = '' } = {}) => {
 export const appendBusinessInfoLink = (
   messageText = '',
   linkUrl = '',
-  { companyName = '' } = {}
+  { companyName = '' } = {},
 ) => {
   const cleanUrl = (linkUrl || '').trim();
   if (!cleanUrl) return (messageText || '').trim();
@@ -325,4 +327,3 @@ export const appendBusinessInfoLink = (
   if (!text) return block;
   return `${text}\n\n${block}`;
 };
-
