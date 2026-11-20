@@ -170,13 +170,20 @@ export const EventContactsScreen = ({ navigation, route }) => {
     );
   };
 
-  // 1. Load Events and Contacts
+  // 1. Sync selectedEventId if route params change
+  useEffect(() => {
+    if (route?.params?.selectedEventId) {
+      setSelectedEventId(route.params.selectedEventId);
+    }
+  }, [route?.params?.selectedEventId]);
+
+  // 2. Load Events and Contacts
   useEffect(() => {
     loadEvents();
   }, [token]);
 
   const loadEvents = async () => {
-    if (!token) return;
+    if (!token) return [];
     try {
       const res = await eventService.getEvents(token);
       if (res.success && Array.isArray(res.data)) {
@@ -184,10 +191,12 @@ export const EventContactsScreen = ({ navigation, route }) => {
         if (!selectedEventId && res.data.length > 0) {
           setSelectedEventId(res.data[0]._id);
         }
+        return res.data;
       }
     } catch (err) {
       console.warn('Failed to load events:', err);
     }
+    return [];
   };
 
   useEffect(() => {
@@ -196,30 +205,38 @@ export const EventContactsScreen = ({ navigation, route }) => {
     }
   }, [token, selectedEventId, searchQuery]);
 
-  const loadContacts = async (eventId, search = '') => {
+  const loadContacts = async (eventId, search = '', currentEvents = events) => {
     if (!token) return;
     setLoading(true);
     try {
+      const eventsList = currentEvents && currentEvents.length > 0 ? currentEvents : events;
       // If an event is selected, fetch for that event
       if (eventId && eventId !== 'all') {
         const res = await eventService.getEventContacts(token, eventId, { search });
         if (res.success && res.data) {
-          const list = (res.data.contacts || []).map((c) => ({
-            ...c,
-            eventTitle: events.find((e) => e._id === c.eventId)?.name || 'Furry Fest',
-          }));
+          const targetEvent = eventsList.find(
+            (e) => String(e._id) === String(eventId)
+          );
+          const list = (res.data.contacts || []).map((c) => {
+            const evId = c.eventId || eventId;
+            const ev = eventsList.find((e) => String(e._id) === String(evId));
+            return {
+              ...c,
+              eventTitle: ev?.name || targetEvent?.name || 'Event',
+            };
+          });
           setContacts(list);
         }
-      } else if (events.length > 0) {
+      } else if (eventsList.length > 0) {
         // Fetch across all events
-        const promises = events.map((e) =>
+        const promises = eventsList.map((e) =>
           eventService.getEventContacts(token, e._id, { search }).catch(() => null)
         );
         const results = await Promise.all(promises);
         let combined = [];
         results.forEach((r, idx) => {
           if (r?.success && Array.isArray(r.data?.contacts)) {
-            const evName = events[idx]?.name || 'Furry Fest';
+            const evName = eventsList[idx]?.name || 'Event';
             combined = combined.concat(
               r.data.contacts.map((c) => ({ ...c, eventTitle: evName }))
             );
@@ -238,18 +255,41 @@ export const EventContactsScreen = ({ navigation, route }) => {
     }
   };
 
+  // Re-sync contact event titles when events arrive or change
+  useEffect(() => {
+    if (events.length > 0) {
+      setContacts((prevContacts) => {
+        if (!prevContacts || prevContacts.length === 0) return prevContacts;
+        let hasChanges = false;
+        const updated = prevContacts.map((c) => {
+          const evId = c.eventId || selectedEventId;
+          const matched = events.find((e) => String(e._id) === String(evId));
+          const properTitle =
+            matched?.name ||
+            (c.eventTitle && c.eventTitle !== 'Furry Fest' ? c.eventTitle : 'Event');
+          if (c.eventTitle !== properTitle) {
+            hasChanges = true;
+            return { ...c, eventTitle: properTitle };
+          }
+          return c;
+        });
+        return hasChanges ? updated : prevContacts;
+      });
+    }
+  }, [events, selectedEventId]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadEvents();
-    await loadContacts(selectedEventId, searchQuery);
+    const freshEvents = await loadEvents();
+    await loadContacts(selectedEventId, searchQuery, freshEvents);
     setRefreshing(false);
-  }, [selectedEventId, searchQuery, token, events]);
+  }, [selectedEventId, searchQuery, token, events, selectedEventId]);
 
   // Format date helper: "10 Nov 2026"
   const formatContactDate = (dateStr) => {
-    if (!dateStr) return '10 Nov 2026';
+    if (!dateStr) return '';
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '10 Nov 2026';
+    if (isNaN(d.getTime())) return '';
     return d.toLocaleDateString('en-GB', {
       day: 'numeric',
       month: 'short',
@@ -268,8 +308,13 @@ export const EventContactsScreen = ({ navigation, route }) => {
   const handleWhatsApp = async (contact) => {
     if (!contact?.phone) return;
     const contactEvent =
-      events.find((e) => e._id === contact.eventId) ||
-      events.find((e) => e._id === selectedEventId);
+      events.find((e) => String(e._id) === String(contact.eventId)) ||
+      events.find((e) => String(e._id) === String(selectedEventId));
+    const resolvedEventName =
+      contactEvent?.name ||
+      (contact.eventTitle && contact.eventTitle !== 'Furry Fest'
+        ? contact.eventTitle
+        : 'the event');
     const contactAttachments = Array.isArray(contact.attachments) ? contact.attachments : [];
     const eventAttachments = contactEvent?.attachments || [];
 
@@ -314,12 +359,12 @@ export const EventContactsScreen = ({ navigation, route }) => {
       '';
 
     const template = (contactEvent?.whatsappTemplate || contactEvent?.description || '').trim();
-    const fallbackMsg = `Hi ${contact.name || 'there'}, thank you for connecting with us at ${contact.eventTitle || contactEvent?.name || 'the event'}!`;
+    const fallbackMsg = `Hi ${contact.name || 'there'}, thank you for connecting with us at ${resolvedEventName}!`;
     const resolvedTemplate = template
       ? populateWhatsAppMessage(template, {
           contactName: contact.name,
           contactCompany: contact.companyName,
-          eventName: contact.eventTitle || contactEvent?.name,
+          eventName: resolvedEventName,
           venue: contactEvent?.venue || contactEvent?.location || '',
           yourName: senderName,
           companyName: senderCompany,
@@ -330,7 +375,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
       ? populateWhatsAppMessage(contact.messageText, {
           contactName: contact.name,
           contactCompany: contact.companyName,
-          eventName: contact.eventTitle || contactEvent?.name,
+          eventName: resolvedEventName,
           venue: contactEvent?.venue || contactEvent?.location || '',
           yourName: senderName,
           companyName: senderCompany,
@@ -352,7 +397,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
         {
           name: contact.name,
           companyName: contact.companyName,
-          eventName: contact.eventTitle || contactEvent?.name,
+          eventName: resolvedEventName,
           sharableLink: sharableFileLink,
         },
       );
@@ -378,7 +423,12 @@ export const EventContactsScreen = ({ navigation, route }) => {
 
   // Render Contact Row matching the screenshot design
   const renderItem = ({ item }) => {
-    const eventName = item.eventTitle || 'Furry Fest';
+    const contactEvent = events.find(
+      (e) => String(e._id) === String(item.eventId || selectedEventId)
+    );
+    const eventName =
+      contactEvent?.name ||
+      (item.eventTitle && item.eventTitle !== 'Furry Fest' ? item.eventTitle : 'Event');
     const dateFormatted = formatContactDate(item.createdAt);
 
     return (
@@ -399,7 +449,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
             <Text style={styles.eventNameText} numberOfLines={1}>
               {eventName}
             </Text>
-            <Text style={styles.dateText}>{dateFormatted}</Text>
+            {dateFormatted ? <Text style={styles.dateText}>{dateFormatted}</Text> : null}
           </View>
         </TouchableOpacity>
 
@@ -437,7 +487,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
   };
 
   const handleEditCurrentEvent = () => {
-    const currentEvent = events.find((e) => e._id === selectedEventId);
+    const currentEvent = events.find((e) => String(e._id) === String(selectedEventId));
     if (!currentEvent) return;
     navigation?.navigate('NewEvent', {
       isEdit: true,
@@ -570,7 +620,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
             </TouchableOpacity>
 
             {events.map((ev) => {
-              const isSelected = selectedEventId === ev._id;
+              const isSelected = String(selectedEventId) === String(ev._id);
               return (
                 <TouchableOpacity
                   key={ev._id}
@@ -613,7 +663,10 @@ export const EventContactsScreen = ({ navigation, route }) => {
               <View style={styles.detailTitleCol}>
                 <Text style={styles.detailName}>{selectedContact?.name}</Text>
                 <Text style={styles.detailEventTag}>
-                  {selectedContact?.eventTitle || 'Event Attendee'}
+                  {events.find((e) => String(e._id) === String(selectedContact?.eventId || selectedEventId))?.name ||
+                    (selectedContact?.eventTitle && selectedContact.eventTitle !== 'Furry Fest'
+                      ? selectedContact.eventTitle
+                      : 'Event Attendee')}
                 </Text>
               </View>
 
@@ -726,7 +779,10 @@ export const EventContactsScreen = ({ navigation, route }) => {
               <View>
                 <Text style={styles.detailName}>Edit Event Contact</Text>
                 <Text style={styles.detailEventTag}>
-                  {editingContact?.eventTitle || 'Event Attendee'}
+                  {events.find((e) => String(e._id) === String(editingContact?.eventId || selectedEventId))?.name ||
+                    (editingContact?.eventTitle && editingContact.eventTitle !== 'Furry Fest'
+                      ? editingContact.eventTitle
+                      : 'Event Attendee')}
                 </Text>
               </View>
               <TouchableOpacity onPress={() => setIsEditModalVisible(false)}>
