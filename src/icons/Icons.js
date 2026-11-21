@@ -397,6 +397,28 @@ export const UserIcon = ({ size = 24, color = Colors.text }) => (
   </Svg>
 );
 
+export const ProfileCardIcon = ({ size = 24, color = Colors.text }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Rect
+      x="3"
+      y="3"
+      width="18"
+      height="18"
+      rx="4"
+      stroke={color}
+      strokeWidth={1.8}
+    />
+    <Circle cx="9" cy="9" r="2.4" stroke={color} strokeWidth={1.7} />
+    <Path
+      d="M5.8 17.5c.4-2 1.5-3 3.2-3s2.8 1 3.2 3M15 8.5h3M15 12h3M15 15.5h2"
+      stroke={color}
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 export const CalendarIcon = ({ size = 24, color = Colors.text }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect
@@ -643,6 +665,18 @@ export const DashboardIcon = ({ size = 24, color = Colors.text, focused = false 
       fillOpacity={focused ? 0.22 : 0}
       stroke={color}
       strokeWidth={1.9}
+    />
+  </Svg>
+);
+
+export const HomeIcon = ({ size = 24, color = Colors.text }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V10Z"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
   </Svg>
 );

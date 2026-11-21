@@ -24,7 +24,7 @@ export default function AuthFlowProgress({ activeStep, onBack }) {
         ) : (
           <View />
         )}
-        <Text style={styles.stepCount}>STEP {activeStep} OF 3</Text>
+        <Text style={styles.stepCount}>STEP {activeStep} OF {STEP_COUNT}</Text>
       </View>
 
       <View
@@ -40,7 +40,16 @@ export default function AuthFlowProgress({ activeStep, onBack }) {
               styles.progressSegment,
               index < activeStep && styles.progressSegmentActive,
             ]}
-          />
+          >
+            <Text
+              style={[
+                styles.progressNumber,
+                index < activeStep && styles.progressNumberActive,
+              ]}
+            >
+              {index + 1}
+            </Text>
+          </View>
         ))}
       </View>
     </View>
@@ -80,15 +89,25 @@ const styles = StyleSheet.create({
   },
   progressSegments: {
     flexDirection: 'row',
-    gap: 7,
+    gap: 8,
   },
   progressSegment: {
     flex: 1,
-    height: 5,
-    borderRadius: 3,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: 'rgba(148, 163, 184, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   progressSegmentActive: {
     backgroundColor: '#8B5CF6',
+  },
+  progressNumber: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontFamily: Fonts.family.semiBold,
+  },
+  progressNumberActive: {
+    color: '#FFFFFF',
   },
 });

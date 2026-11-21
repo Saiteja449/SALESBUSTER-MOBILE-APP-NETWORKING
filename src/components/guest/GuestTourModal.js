@@ -433,6 +433,20 @@ const GuestTourModal = ({ visible, onClose, onComplete, tourVideoConfig }) => {
 
   const step = TOUR_STEPS[currentStep];
   const isCompact = height < 700;
+  const configuredSteps = Array.isArray(tourVideoConfig?.steps)
+    ? tourVideoConfig.steps
+    : [];
+  // Each tour slide can play its own video independently. Requiring all four
+  // uploads before showing any of them made configured backend videos look static.
+  const activeStepConfig = configuredSteps.find(
+    configuredStep =>
+      Number(configuredStep.stepIndex) === step.stepIndex &&
+      Boolean(configuredStep.videoUrl),
+  );
+  const legacyVideoApplies =
+    !activeStepConfig &&
+    Boolean(tourVideoConfig?.videoUrl) &&
+    step.stepIndex === (tourVideoConfig?.stepIndex ?? 0);
 
   // Render Row Icon
   const renderRowIcon = type => {
@@ -472,25 +486,21 @@ const GuestTourModal = ({ visible, onClose, onComplete, tourVideoConfig }) => {
 
   // Render Themed Hero Card for Steps 1-4
   const renderHero = () => {
-    // Check if SuperAdmin has configured a customized walkthrough video
-    const isCustomVideoActive = Boolean(
-      tourVideoConfig?.isActive !== false &&
-      tourVideoConfig?.videoUrl &&
-      step.stepIndex === (tourVideoConfig?.stepIndex ?? 0)
-    );
+    // Uploaded slide videos should be available even when the old global
+    // isActive flag is false; that flag was preventing all tour videos from rendering.
+    const isCustomVideoActive = Boolean(activeStepConfig?.videoUrl || legacyVideoApplies);
 
     if (isCustomVideoActive) {
+      const videoConfig = activeStepConfig || tourVideoConfig;
+      const posterUrl =
+        videoConfig?.bannerImageUrl || tourVideoConfig?.bannerImageUrl;
       return (
-        <View style={styles.heroWrapper}>
+        <View style={[styles.heroWrapper, styles.heroVideoWrapper]}>
           <InlineVideoPlayer
-            videoUrl={getFullMediaUrl(tourVideoConfig.videoUrl)}
-            posterUrl={
-              tourVideoConfig.bannerImageUrl
-                ? getFullMediaUrl(tourVideoConfig.bannerImageUrl)
-                : ''
-            }
+            videoUrl={getFullMediaUrl(videoConfig.videoUrl)}
+            posterUrl={posterUrl ? getFullMediaUrl(posterUrl) : ''}
             fallbackBg={tourVideoConfig?.fallbackBg || '#1E1D36'}
-            title={tourVideoConfig?.title || step.title}
+            title={videoConfig?.title || step.title}
             containerStyle={styles.heroVideoContainer}
             resizeMode="cover"
           />
@@ -613,6 +623,8 @@ const GuestTourModal = ({ visible, onClose, onComplete, tourVideoConfig }) => {
                 <CloseIcon size={18} color="rgba(255, 255, 255, 0.7)" />
               </TouchableOpacity>
 
+              <Text style={styles.modalHeading}>How it works</Text>
+
               {/* Step Pill Badge */}
               <View style={styles.badgeWrapper}>
                 <View style={styles.badge}>
@@ -635,14 +647,14 @@ const GuestTourModal = ({ visible, onClose, onComplete, tourVideoConfig }) => {
 
                 {/* 2. Title & Subtitle */}
                 <Text style={styles.titleText}>
-                  {step.stepIndex === (tourVideoConfig?.stepIndex ?? 0) && tourVideoConfig?.title
-                    ? tourVideoConfig.title
-                    : step.title}
+                  {activeStepConfig?.title ||
+                    (legacyVideoApplies ? tourVideoConfig?.title : '') ||
+                    step.title}
                 </Text>
                 <Text style={styles.subtitleText}>
-                  {step.stepIndex === (tourVideoConfig?.stepIndex ?? 0) && tourVideoConfig?.subtitle
-                    ? tourVideoConfig.subtitle
-                    : step.subtitle}
+                  {activeStepConfig?.subtitle ||
+                    (legacyVideoApplies ? tourVideoConfig?.subtitle : '') ||
+                    step.subtitle}
                 </Text>
 
                 {/* 3. Feature Card (Dark Box with 3 Rows) */}
@@ -750,6 +762,13 @@ const GuestTourModal = ({ visible, onClose, onComplete, tourVideoConfig }) => {
 };
 
 const styles = StyleSheet.create({
+  modalHeading: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontFamily: Fonts.family.bold,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(4, 5, 15, 0.82)',
@@ -822,6 +841,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  heroVideoWrapper: {
+    height: 168,
   },
   heroVideoContainer: {
     width: '100%',

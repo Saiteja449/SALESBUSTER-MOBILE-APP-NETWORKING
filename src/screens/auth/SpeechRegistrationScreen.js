@@ -21,6 +21,7 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import Text from '../../components/common/AppText';
 import TextInput from '../../components/common/AppTextInput';
 import KeyboardAwareScrollView from '../../components/common/KeyboardAwareScrollView';
+import CountdownBeepPlayer from '../../components/common/CountdownBeepPlayer';
 import BrandGradientBackground from '../../components/common/BrandGradientBackground';
 import AuthFlowProgress from '../../components/auth/AuthFlowProgress';
 import { SalesBusterIcon } from '../../components/common/BrandLogo';
@@ -152,6 +153,7 @@ export default function SpeechRegistrationScreen({
   const [analysisStep, setAnalysisStep] = useState(1);
   const [voiceCountdown, setVoiceCountdown] = useState(null);
   const [voiceRecordingSeconds, setVoiceRecordingSeconds] = useState(0);
+  const [isCountdownBeepPlaying, setIsCountdownBeepPlaying] = useState(false);
   const [rawTranscript, setRawTranscript] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -159,6 +161,8 @@ export default function SpeechRegistrationScreen({
   const [isProfileFormVisible, setIsProfileFormVisible] = useState(false);
 
   const countdownTimerRef = useRef(null);
+  const countdownBeepActiveRef = useRef(false);
+  const muteBeforeCountdownBeepRef = useRef(false);
   const voiceTimerRef = useRef(null);
   const audioCaptureInfoRef = useRef(null);
   const keepAudioForAnalysisRef = useRef(false);
@@ -266,6 +270,18 @@ export default function SpeechRegistrationScreen({
 
   const liveVoiceRef = useRef(liveVoice);
   liveVoiceRef.current = liveVoice;
+
+  const finishCountdownBeep = useCallback((resumeListening = true) => {
+    if (!countdownBeepActiveRef.current) return;
+    countdownBeepActiveRef.current = false;
+    setIsCountdownBeepPlaying(false);
+    liveVoiceRef.current?.setMuted?.(muteBeforeCountdownBeepRef.current);
+    if (resumeListening) {
+      setVoiceCountdown(null);
+      setIsListening(true);
+      setVoiceRecordingSeconds(0);
+    }
+  }, []);
 
   // Voice recording seconds timer
   useEffect(() => {
@@ -409,6 +425,8 @@ export default function SpeechRegistrationScreen({
     }
 
     setVoiceRecordingSeconds(0);
+    countdownBeepActiveRef.current = false;
+    setIsCountdownBeepPlaying(false);
     setRawTranscript('');
     setIsVoiceModalVisible(true);
     setIsListening(false);
@@ -431,9 +449,13 @@ export default function SpeechRegistrationScreen({
       } else {
         clearInterval(countdownTimerRef.current);
         countdownTimerRef.current = null;
-        setVoiceCountdown(null);
-        setIsListening(true);
-        setVoiceRecordingSeconds(0);
+        muteBeforeCountdownBeepRef.current = Boolean(
+          liveVoiceRef.current?.isMuted,
+        );
+        countdownBeepActiveRef.current = true;
+        liveVoiceRef.current?.setMuted?.(true);
+        setVoiceCountdown(0);
+        setIsCountdownBeepPlaying(true);
       }
     }, 1000);
 
@@ -450,6 +472,7 @@ export default function SpeechRegistrationScreen({
         countdownTimerRef.current = null;
       }
       setVoiceCountdown(null);
+      finishCountdownBeep(false);
       setIsListening(false);
       setIsVoiceModalVisible(false);
       setErrorMessage(err.message || 'Could not start live voice assistant.');
@@ -459,6 +482,7 @@ export default function SpeechRegistrationScreen({
   // Finish Voice: Runs the 4-step AI analysis inside the popup sheet and fills fields
   const handleFinishVoice = async () => {
     if (isVoiceAnalysing) return;
+    finishCountdownBeep(false);
     if (countdownTimerRef.current) {
       clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
@@ -569,6 +593,7 @@ export default function SpeechRegistrationScreen({
   // Close voice popup without finishing
   const handleCloseVoiceModal = async () => {
     if (isVoiceAnalysing) return;
+    finishCountdownBeep(false);
     if (countdownTimerRef.current) {
       clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
@@ -691,12 +716,6 @@ export default function SpeechRegistrationScreen({
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#0A0D14" />
 
-      {embeddedFlow ? (
-        <View style={styles.fixedProgressWrapper}>
-          <AuthFlowProgress activeStep={3} onBack={onBack} />
-        </View>
-      ) : null}
-
       <KeyboardAwareScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -708,6 +727,8 @@ export default function SpeechRegistrationScreen({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {embeddedFlow ? <AuthFlowProgress activeStep={3} onBack={onBack} /> : null}
+
         {/* Top Section */}
         <View style={styles.topSection}>
           <View
@@ -913,6 +934,11 @@ export default function SpeechRegistrationScreen({
         onRequestClose={handleCloseVoiceModal}
       >
         <View style={styles.voiceModalOverlay}>
+          {isCountdownBeepPlaying && (
+            <CountdownBeepPlayer
+              onFinished={() => finishCountdownBeep(true)}
+            />
+          )}
           <View style={styles.voiceModalSheet}>
             {/* Close Button in Modal */}
             <TouchableOpacity
@@ -928,8 +954,7 @@ export default function SpeechRegistrationScreen({
             {/* WAVEFORM + MIC HERO ANIMATION */}
             <View style={styles.voiceModalMicArea}>
               {/* Left Animated Waveform Bars */}
-              {!isVoiceAnalysing && (
-                <View style={styles.voiceModalWaveGroupLeft}>
+              <View style={styles.voiceModalWaveGroupLeft}>
                   {WAVE_BARS_LEFT.map((bar, idx) => (
                     <Animated.View
                       key={`vl-${idx}`}
@@ -941,7 +966,8 @@ export default function SpeechRegistrationScreen({
                           transform: [
                             {
                               scaleY:
-                                isListening && !liveVoice?.isPaused
+                                (isListening && !liveVoice?.isPaused) ||
+                                isVoiceAnalysing
                                   ? idx % 2 === 0
                                     ? waveAnim1
                                     : waveAnim2
@@ -952,8 +978,7 @@ export default function SpeechRegistrationScreen({
                       ]}
                     />
                   ))}
-                </View>
-              )}
+              </View>
 
               {/* Central Glowing Mic / Countdown / Spinner */}
               <View style={styles.voiceModalMicCenter}>
@@ -1148,8 +1173,7 @@ export default function SpeechRegistrationScreen({
               </View>
 
               {/* Right Animated Waveform Bars */}
-              {!isVoiceAnalysing && (
-                <View style={styles.voiceModalWaveGroupRight}>
+              <View style={styles.voiceModalWaveGroupRight}>
                   {WAVE_BARS_RIGHT.map((bar, idx) => (
                     <Animated.View
                       key={`vr-${idx}`}
@@ -1161,7 +1185,8 @@ export default function SpeechRegistrationScreen({
                           transform: [
                             {
                               scaleY:
-                                isListening && !liveVoice?.isPaused
+                                (isListening && !liveVoice?.isPaused) ||
+                                isVoiceAnalysing
                                   ? idx % 2 === 0
                                     ? waveAnim2
                                     : waveAnim1
@@ -1172,8 +1197,7 @@ export default function SpeechRegistrationScreen({
                       ]}
                     />
                   ))}
-                </View>
-              )}
+              </View>
             </View>
 
             {isVoiceAnalysing ? (
@@ -1405,15 +1429,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0A0D14',
   },
-  fixedProgressWrapper: {
-    width: '100%',
-    maxWidth: 480,
-    alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    backgroundColor: '#0A0D14',
-    zIndex: 2,
-  },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 20,
@@ -1639,7 +1654,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0D1422',
     borderRadius: 13,
     paddingHorizontal: 14,
-    height: 54,
+    height: 51,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.14)',

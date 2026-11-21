@@ -1,117 +1,200 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import {
+  Animated,
+  Dimensions,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { TabActions } from '@react-navigation/native';
 import Text from '../components/common/AppText';
 import GuestHomeScreen from '../screens/guest/GuestHomeScreen';
 import EventContactsScreen from '../screens/guest/EventContactsScreen';
 import GuestAccountScreen from '../screens/guest/GuestAccountScreen';
-import { Colors } from '../styles/Colors';
 import { Fonts } from '../styles/Fonts';
-import { MicIcon, UserIcon } from '../icons/Icons';
+import { ContactsIcon, HomeIcon, ProfileCardIcon } from '../icons/Icons';
 
 const Tab = createBottomTabNavigator();
 
-const TabIcon = ({ icon, label, focused, activeColor = '#9333EA' }) => (
-  <View style={styles.tabIconContainer}>
-    <View style={[styles.iconWrap, focused && styles.iconWrapFocused]}>
-      {icon}
-    </View>
-    <Text
-      numberOfLines={1}
-      ellipsizeMode="tail"
-      style={[styles.tabLabel, focused && [styles.tabLabelFocused, { color: activeColor }]]}
-    >
-      {label}
-    </Text>
-    {focused && <View style={[styles.activeIndicator, { backgroundColor: activeColor }]} />}
-  </View>
-);
+const TAB_PRESENTATION = {
+  GuestHome: { label: 'Home', Icon: HomeIcon },
+  EventContacts: { label: 'Contacts', Icon: ContactsIcon },
+  GuestAccount: { label: 'Profile', Icon: ProfileCardIcon },
+};
 
-export const GuestTabNavigator = () => {
+const SmoothGuestTabBar = ({ state, descriptors, navigation }) => {
+  const [barWidth, setBarWidth] = React.useState(Dimensions.get('window').width);
+  const translateX = React.useRef(new Animated.Value(0)).current;
+  const tabWidth = barWidth / state.routes.length;
+  const activeTab = TAB_PRESENTATION[state.routes[state.index]?.name] || TAB_PRESENTATION.GuestHome;
+  const ActiveIcon = activeTab.Icon;
+
+  React.useEffect(() => {
+    const animation = Animated.timing(translateX, {
+      toValue: tabWidth * state.index,
+      duration: 230,
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [state.index, tabWidth, translateX]);
+
   return (
-    <Tab.Navigator
-      initialRouteName="GuestHome"
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: { display: 'none' },
-        tabBarShowLabel: false,
+    <View
+      style={styles.tabBar}
+      onLayout={event => {
+        const measuredWidth = event.nativeEvent.layout.width;
+        if (measuredWidth > 0 && measuredWidth !== barWidth) {
+          setBarWidth(measuredWidth);
+        }
       }}
     >
-      <Tab.Screen
-        name="GuestHome"
-        component={GuestHomeScreen}
-      />
-      <Tab.Screen
-        name="EventContacts"
-        component={EventContactsScreen}
-      />
-      <Tab.Screen
-        name="GuestAccount"
-        component={GuestAccountScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon
-              icon={
-                <UserIcon
-                  size={22}
-                  color={focused ? '#9333EA' : Colors.tabInactive}
-                />
+      <View style={styles.tabRow}>
+        {state.routes.map((route, index) => {
+          const focused = state.index === index;
+          const presentation = TAB_PRESENTATION[route.name] || TAB_PRESENTATION.GuestHome;
+          const Icon = presentation.Icon;
+          const { options } = descriptors[route.key];
+          const accessibilityLabel =
+            options.tabBarAccessibilityLabel || options.title || presentation.label;
+
+          return (
+            <Pressable
+              key={route.key}
+              accessibilityRole="tab"
+              accessibilityLabel={accessibilityLabel}
+              accessibilityState={focused ? { selected: true } : {}}
+              onPress={() => {
+                const event = navigation.emit({
+                  type: 'tabPress',
+                  target: route.key,
+                  canPreventDefault: true,
+                });
+
+                if (!focused && !event.defaultPrevented) {
+                  navigation.dispatch(TabActions.jumpTo(route.name, route.params));
+                }
+              }}
+              onLongPress={() =>
+                navigation.emit({ type: 'tabLongPress', target: route.key })
               }
-              label="Account / Upgrade"
-              focused={focused}
-              activeColor="#9333EA"
-            />
-          ),
-        }}
-      />
-    </Tab.Navigator>
+              style={styles.tabButton}
+            >
+              <View style={[styles.inactiveIcon, focused && styles.hiddenActiveIcon]}>
+                <Icon size={26} color="#918DA6" focused={focused} />
+              </View>
+            </Pressable>
+          );
+        })}
+
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.activePill,
+            {
+              width: tabWidth,
+              transform: [{ translateX }],
+            },
+          ]}
+        >
+          <ActiveIcon size={26} color="#FFFFFF" focused />
+          <Text numberOfLines={1} style={styles.activeLabel}>
+            {activeTab.label}
+          </Text>
+        </Animated.View>
+      </View>
+    </View>
   );
 };
 
+const renderSmoothGuestTabBar = props => <SmoothGuestTabBar {...props} />;
+
+export const GuestTabNavigator = () => (
+  <Tab.Navigator
+    initialRouteName="GuestHome"
+    tabBar={renderSmoothGuestTabBar}
+    screenOptions={{
+      headerShown: false,
+      // Keep tab changes instantaneous so the underlying navigator background
+      // cannot flash through while scenes shift between tabs.
+      animation: 'none',
+      sceneStyle: { backgroundColor: '#0B0A1F' },
+    }}
+  >
+    <Tab.Screen
+      name="GuestHome"
+      component={GuestHomeScreen}
+      options={{ tabBarAccessibilityLabel: 'Home' }}
+    />
+    <Tab.Screen
+      name="EventContacts"
+      component={EventContactsScreen}
+      options={{ tabBarAccessibilityLabel: 'Contacts' }}
+    />
+    <Tab.Screen
+      name="GuestAccount"
+      component={GuestAccountScreen}
+      options={{ tabBarAccessibilityLabel: 'Profile' }}
+    />
+  </Tab.Navigator>
+);
+
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: Colors.card,
-    borderTopColor: Colors.borderLight,
+    backgroundColor: '#0B0A1F',
+    borderTopColor: '#26243A',
     borderTopWidth: 1,
-    height: Platform.OS === 'ios' ? 88 : 70,
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-    elevation: 8,
-    shadowColor: Colors.black,
+    height: Platform.OS === 'ios' ? 92 : 78,
+    paddingTop: 6,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 6,
+    elevation: 6,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowOpacity: 0.16,
+    shadowRadius: 5,
   },
-  tabIconContainer: {
+  tabRow: {
+    flex: 1,
+    flexDirection: 'row',
+    position: 'relative',
+    alignItems: 'center',
+  },
+  tabButton: {
+    flex: 1,
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 2,
-    position: 'relative',
-    minWidth: 70,
   },
-  iconWrap: {
-    padding: 2,
+  inactiveIcon: {
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  iconWrapFocused: {
-    transform: [{ scale: 1.05 }],
+  hiddenActiveIcon: {
+    opacity: 0,
   },
-  tabLabel: {
-    fontSize: 10,
-    fontFamily: Fonts.family.medium,
-    color: Colors.tabInactive,
-    marginTop: 2,
-  },
-  tabLabelFocused: {
-    fontFamily: Fonts.family.semiBold,
-  },
-  activeIndicator: {
+  activePill: {
     position: 'absolute',
-    bottom: -6,
-    width: 24,
-    height: 3,
-    borderRadius: 2,
+    left: 0,
+    top: 7,
+    height: 52,
+    borderRadius: 26,
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: '#5013C7',
+  },
+  activeLabel: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: Fonts.family.semiBold,
+    includeFontPadding: false,
   },
 });
 
 export default GuestTabNavigator;
-

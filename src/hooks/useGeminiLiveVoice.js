@@ -254,6 +254,7 @@ export function useGeminiLiveVoice(options = {}) {
       setInputVolume(0);
       setOutputVolume(0);
       setActiveToolName(null);
+      GeminiVoiceAudioModule?.setMuted(false);
       setIsMuted(false);
       setIsClosing(false);
       isClosingRef.current = false;
@@ -1054,13 +1055,17 @@ export function useGeminiLiveVoice(options = {}) {
   );
 
   // 5. Toggle Mute
-  const toggleMute = useCallback(() => {
-    const nextMuted = !isMuted;
+  const setMuted = useCallback(muted => {
+    const nextMuted = Boolean(muted);
     setIsMuted(nextMuted);
     if (GeminiVoiceAudioModule) {
       GeminiVoiceAudioModule.setMuted(nextMuted);
     }
-  }, [isMuted]);
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    setMuted(!isMuted);
+  }, [isMuted, setMuted]);
 
   // 5b. Toggle Speaker / Earpiece
   const toggleSpeaker = useCallback(async () => {
@@ -1163,6 +1168,7 @@ export function useGeminiLiveVoice(options = {}) {
     voiceName,
     setVoiceName,
     isMuted,
+    setMuted,
     isSpeakerOn,
     startVoiceSession,
     stopVoiceSession,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { DarkTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import SplashScreen from '../screens/system/SplashScreen';
@@ -68,7 +68,12 @@ const GuestAppNavigator = () => {
 
   return (
     <View style={styles.root}>
-      <NavigationContainer>
+      <NavigationContainer
+        theme={{
+          ...DarkTheme,
+          colors: { ...DarkTheme.colors, background: '#0B0A1F' },
+        }}
+      >
         <Stack.Navigator
           key={isAuthenticated && isGuest ? 'guest-app' : 'auth-flow'}
           initialRouteName={
@@ -142,6 +147,8 @@ const GuestAppNavigator = () => {
   );
 };
 
-const styles = StyleSheet.create({ root: { flex: 1 } });
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#0B0A1F' },
+});
 
 export default GuestAppNavigator;

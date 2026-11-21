@@ -289,28 +289,22 @@ export default function LoginScreen() {
         translucent={false}
       />
 
-      <View
-        style={[
-          styles.fixedProgressWrapper,
-          { paddingTop: Math.max(insets.top + (isCompact ? 8 : 12), 12) },
-        ]}
-      >
-        <AuthFlowProgress
-          activeStep={activeStep}
-          onBack={step === 'otp' ? handleBackToPhone : undefined}
-        />
-      </View>
-
       <KeyboardAwareScrollView
         contentContainerStyle={[
           styles.scrollContent,
           {
+            paddingTop: Math.max(insets.top + (isCompact ? 8 : 12), 12),
             paddingBottom: Math.max(insets.bottom + 20, 28),
           },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <AuthFlowProgress
+          activeStep={activeStep}
+          onBack={step === 'otp' ? handleBackToPhone : undefined}
+        />
+
         {/* Animated Brand Header */}
         <Animated.View
           style={[
@@ -325,12 +319,12 @@ export default function LoginScreen() {
             <SalesBusterIcon size={60} borderRadius={12} />
           </View>
           <Text style={styles.title}>
-            {step === 'phone' ? 'Welcome to SalesBuster' : 'Verify your number'}
+            {step === 'phone' ? 'Welcome to SalesBuster' : 'Enter your code'}
           </Text>
           <Text style={styles.subtitle}>
             {step === 'phone'
-              ? 'Sign in with your mobile number to continue.'
-              : 'Enter the 4-digit code sent to your mobile.'}
+              ? 'Use your mobile number to securely access your account.'
+              : `We sent a 4-digit SMS code to ${formatMaskedPhone(phone)}.`}
           </Text>
         </Animated.View>
 
@@ -436,6 +430,9 @@ export default function LoginScreen() {
                   <Text style={styles.primaryButtonText}>Continue</Text>
                 )}
               </TouchableOpacity>
+              <Text style={styles.phonePrivacyNote}>
+                We’ll use this number to verify and protect your account.
+              </Text>
             </View>
           ) : (
             /* ================= Step 2: OTP Verification Screen ================= */
@@ -573,14 +570,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 480,
   },
-  fixedProgressWrapper: {
-    width: '100%',
-    maxWidth: 480,
-    alignSelf: 'center',
-    paddingHorizontal: 20,
-    backgroundColor: PALETTE.bgDeep,
-    zIndex: 2,
-  },
   headerSection: {
     alignItems: 'center',
     marginBottom: 22,
@@ -627,7 +616,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: PALETTE.inputBorder,
     paddingHorizontal: 14,
-    height: 58,
+    height: 51,
   },
   phoneInputContainerFocused: {
     borderColor: PALETTE.inputBorderFocused,
@@ -647,7 +636,7 @@ const styles = StyleSheet.create({
   },
   countryCodeText: {
     color: PALETTE.textPrimary,
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: Fonts.family.semiBold,
   },
   phoneDivider: {
@@ -661,7 +650,7 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
     color: PALETTE.textPrimary,
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: Fonts.family.medium,
     letterSpacing: 0.5,
   },
@@ -743,7 +732,7 @@ const styles = StyleSheet.create({
   otpBox: {
     flex: 1,
     maxWidth: 68,
-    height: 64,
+    height: 70,
     backgroundColor: '#0C1422',
     borderRadius: 16,
     borderWidth: 1,
@@ -819,6 +808,15 @@ const styles = StyleSheet.create({
     fontSize: 15.5,
     fontFamily: Fonts.family.bold,
     letterSpacing: 0.3,
+  },
+  phonePrivacyNote: {
+    color: PALETTE.textMuted,
+    fontSize: 11.5,
+    fontFamily: Fonts.family.regular,
+    textAlign: 'center',
+    lineHeight: 16,
+    marginTop: 14,
+    paddingHorizontal: 8,
   },
   resendRow: {
     alignItems: 'center',

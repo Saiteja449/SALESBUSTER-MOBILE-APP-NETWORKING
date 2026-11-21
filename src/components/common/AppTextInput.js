@@ -71,6 +71,8 @@ AppTextInput.displayName = 'AppTextInput';
 const styles = StyleSheet.create({
   defaultInput: {
     fontFamily: Fonts.family.regular,
+    fontSize: 14,
+    paddingVertical: 0,
   },
 });
 

@@ -21,7 +21,7 @@ const toFriendlyError = (err, fallback) => {
 /**
  * Resolves active authentication token from passed parameter or AsyncStorage
  */
-const resolveToken = async (passedToken) => {
+const resolveToken = async passedToken => {
   if (passedToken && typeof passedToken === 'string' && passedToken.trim()) {
     return passedToken.trim();
   }
@@ -42,7 +42,7 @@ const resolveToken = async (passedToken) => {
  * name/fileName/originalName/filename, type/mimeType/contentType), and resolves
  * server paths via getFullMediaUrl while leaving local URIs intact.
  */
-const normalizeAttachment = (att) => {
+const normalizeAttachment = att => {
   if (!att) return null;
 
   // Handle bare string URL or URI
@@ -85,7 +85,8 @@ const normalizeAttachment = (att) => {
 
   // Extract best name across all possible keys
   const rawName = att.name || att.fileName || att.originalName || att.filename;
-  let finalName = typeof rawName === 'string' && rawName.trim() ? rawName.trim() : '';
+  let finalName =
+    typeof rawName === 'string' && rawName.trim() ? rawName.trim() : '';
   if (!finalName) {
     const cleanPath = normalizedSource.split('?')[0].split('#')[0];
     finalName = cleanPath.split('/').pop() || 'attachment';
@@ -94,7 +95,9 @@ const normalizeAttachment = (att) => {
   // Extract best MIME type across all possible keys
   const rawType = att.type || att.mimeType || att.contentType;
   const finalType =
-    typeof rawType === 'string' && rawType.trim() ? rawType.trim() : 'application/octet-stream';
+    typeof rawType === 'string' && rawType.trim()
+      ? rawType.trim()
+      : 'application/octet-stream';
 
   return {
     ...att,
@@ -110,7 +113,7 @@ const normalizeAttachment = (att) => {
 
 export const WATERMARK_SEPARATOR = '----------------------------------';
 export const WATERMARK_TAGLINE = '-Smart networking through';
-export const WATERMARK_URL = 'salesbuster.ai';
+export const WATERMARK_URL = 'salesbuster.ai/s/EBhMRz';
 
 export const WHATSAPP_WATERMARK = `${WATERMARK_SEPARATOR}\n${WATERMARK_TAGLINE}\n${WATERMARK_URL}`;
 
@@ -126,14 +129,22 @@ export const appendWhatsAppWatermark = (text = '') => {
     return clean;
   }
 
-  // If text has the legacy single-line watermark, upgrade it to the new 3-part watermark
+  // If text has a previous or legacy watermark format, upgrade it
+  const existingWatermarkRegex = new RegExp(
+    `${WATERMARK_SEPARATOR}\\n${WATERMARK_TAGLINE}\\n[^\\n]+$`,
+    'i',
+  );
+  if (existingWatermarkRegex.test(clean)) {
+    return clean.replace(existingWatermarkRegex, WHATSAPP_WATERMARK);
+  }
+
   if (clean.includes(WATERMARK_TAGLINE)) {
     return clean.replace(WATERMARK_TAGLINE, WHATSAPP_WATERMARK);
   }
   if (/smart\s+networking\s+through\s+salesbuster\s+ai/i.test(clean)) {
     return clean.replace(
       /[-–—]?\s*smart\s+networking\s+through\s+salesbuster\s+ai/i,
-      WHATSAPP_WATERMARK
+      WHATSAPP_WATERMARK,
     );
   }
 
@@ -143,16 +154,30 @@ export const appendWhatsAppWatermark = (text = '') => {
 export const eventService = {
   async analyzeVoiceAudio(token, { audioUri, eventName }) {
     const activeToken = await resolveToken(token);
-    if (!activeToken) throw new Error('Authentication token required. Please log in.');
+    if (!activeToken)
+      throw new Error('Authentication token required. Please log in.');
     if (!audioUri) throw new Error('Audio recording file is required.');
     const formData = new FormData();
     if (eventName) formData.append('eventName', eventName);
-    const cleanUri = audioUri.startsWith('file://') ? audioUri : `file://${audioUri}`;
-    formData.append('audio', { uri: cleanUri, name: cleanUri.split('/').pop() || 'guest_voice.wav', type: 'audio/wav' });
-    const response = await axios.post(API_ENDPOINTS.EVENTS.ANALYZE_VOICE_AUDIO, formData, {
-      headers: { Authorization: `Bearer ${activeToken}`, 'Content-Type': 'multipart/form-data' },
-      timeout: 120000,
+    const cleanUri = audioUri.startsWith('file://')
+      ? audioUri
+      : `file://${audioUri}`;
+    formData.append('audio', {
+      uri: cleanUri,
+      name: cleanUri.split('/').pop() || 'guest_voice.wav',
+      type: 'audio/wav',
     });
+    const response = await axios.post(
+      API_ENDPOINTS.EVENTS.ANALYZE_VOICE_AUDIO,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${activeToken}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 120000,
+      },
+    );
     return response.data;
   },
 
@@ -162,13 +187,15 @@ export const eventService = {
    */
   async scanBusinessCard(token, { imageBase64, mimeType = 'image/jpeg' }) {
     const activeToken = await resolveToken(token);
-    if (!activeToken) throw new Error('Authentication token required. Please log in.');
+    if (!activeToken)
+      throw new Error('Authentication token required. Please log in.');
     if (!imageBase64 || !imageBase64.trim()) {
       throw new Error('Card image data is required');
     }
 
     const res = await axios.post(
-      API_ENDPOINTS.EVENTS.SCAN_CARD || `${API_ENDPOINTS.EVENTS.BASE}/scan-card`,
+      API_ENDPOINTS.EVENTS.SCAN_CARD ||
+        `${API_ENDPOINTS.EVENTS.BASE}/scan-card`,
       {
         imageBase64: imageBase64.trim(),
         mimeType: mimeType || 'image/jpeg',
@@ -179,7 +206,7 @@ export const eventService = {
           'Content-Type': 'application/json',
         },
         timeout: 35000,
-      }
+      },
     );
 
     return res.data;
@@ -190,7 +217,8 @@ export const eventService = {
    */
   async getEvents(token, status = 'active') {
     const activeToken = await resolveToken(token);
-    if (!activeToken) throw new Error('Authentication token required. Please log in.');
+    if (!activeToken)
+      throw new Error('Authentication token required. Please log in.');
 
     try {
       const res = await axios.get(API_ENDPOINTS.EVENTS.BASE, {
@@ -201,8 +229,14 @@ export const eventService = {
 
       return res.data;
     } catch (err) {
-      console.warn('[eventService] getEvents error:', err?.response?.data || err?.message);
-      throw toFriendlyError(err, 'Unable to load events. Please pull down to refresh.');
+      console.warn(
+        '[eventService] getEvents error:',
+        err?.response?.data || err?.message,
+      );
+      throw toFriendlyError(
+        err,
+        'Unable to load events. Please pull down to refresh.',
+      );
     }
   },
 
@@ -211,13 +245,16 @@ export const eventService = {
    */
   async createEvent(token, payload) {
     const activeToken = await resolveToken(token);
-    if (!activeToken) throw new Error('Authentication token required. Please log in.');
+    if (!activeToken)
+      throw new Error('Authentication token required. Please log in.');
     if (!payload?.name || !payload.name.trim()) {
       throw new Error('Event name is required');
     }
 
-    const attachments = Array.isArray(payload.attachments) ? payload.attachments : [];
-    const localFiles = attachments.filter((att) => att?.uri && !att?.url);
+    const attachments = Array.isArray(payload.attachments)
+      ? payload.attachments
+      : [];
+    const localFiles = attachments.filter(att => att?.uri && !att?.url);
     let data = payload;
     let headers = {
       Authorization: `Bearer ${activeToken}`,
@@ -227,14 +264,18 @@ export const eventService = {
     if (localFiles.length > 0) {
       const form = new FormData();
       Object.entries(payload).forEach(([key, value]) => {
-        if (key === 'attachments' || value === undefined || value === null) return;
-        form.append(key, value instanceof Date ? value.toISOString() : String(value));
+        if (key === 'attachments' || value === undefined || value === null)
+          return;
+        form.append(
+          key,
+          value instanceof Date ? value.toISOString() : String(value),
+        );
       });
-      const remoteAttachments = attachments.filter((att) => att?.url);
+      const remoteAttachments = attachments.filter(att => att?.url);
       if (remoteAttachments.length > 0) {
         form.append('attachments', JSON.stringify(remoteAttachments));
       }
-      localFiles.forEach((file) => {
+      localFiles.forEach(file => {
         form.append('attachments', {
           uri: file.uri,
           type: file.type || 'application/octet-stream',
@@ -249,11 +290,20 @@ export const eventService = {
     }
 
     try {
-      const res = await axios.post(API_ENDPOINTS.EVENTS.BASE, data, { headers, timeout: 120000 });
+      const res = await axios.post(API_ENDPOINTS.EVENTS.BASE, data, {
+        headers,
+        timeout: 120000,
+      });
       return res.data;
     } catch (err) {
-      console.warn('[eventService] createEvent error:', err?.response?.data || err?.message);
-      throw toFriendlyError(err, 'Unable to save event. Please check the details and try again.');
+      console.warn(
+        '[eventService] createEvent error:',
+        err?.response?.data || err?.message,
+      );
+      throw toFriendlyError(
+        err,
+        'Unable to save event. Please check the details and try again.',
+      );
     }
   },
 
@@ -262,11 +312,14 @@ export const eventService = {
    */
   async updateEvent(token, eventId, payload) {
     const activeToken = await resolveToken(token);
-    if (!activeToken) throw new Error('Authentication token required. Please log in.');
+    if (!activeToken)
+      throw new Error('Authentication token required. Please log in.');
     if (!eventId) throw new Error('Event ID is required');
 
-    const attachments = Array.isArray(payload.attachments) ? payload.attachments : [];
-    const localFiles = attachments.filter((att) => att?.uri && !att?.url);
+    const attachments = Array.isArray(payload.attachments)
+      ? payload.attachments
+      : [];
+    const localFiles = attachments.filter(att => att?.uri && !att?.url);
     let data = payload;
     let headers = {
       Authorization: `Bearer ${activeToken}`,
@@ -276,15 +329,19 @@ export const eventService = {
     if (localFiles.length > 0) {
       const form = new FormData();
       Object.entries(payload).forEach(([key, value]) => {
-        if (key === 'attachments' || value === undefined || value === null) return;
-        form.append(key, value instanceof Date ? value.toISOString() : String(value));
+        if (key === 'attachments' || value === undefined || value === null)
+          return;
+        form.append(
+          key,
+          value instanceof Date ? value.toISOString() : String(value),
+        );
       });
-      const remoteAttachments = attachments.filter((att) => att?.url);
+      const remoteAttachments = attachments.filter(att => att?.url);
       form.append('replaceAttachments', 'true');
       form.append('existingAttachments', JSON.stringify(remoteAttachments));
       form.append('attachments', JSON.stringify(remoteAttachments));
 
-      localFiles.forEach((file) => {
+      localFiles.forEach(file => {
         let fileName = file.name || 'attachment';
         const fileType = file.type || 'application/octet-stream';
         form.append('attachments', {
@@ -300,19 +357,21 @@ export const eventService = {
     }
 
     try {
-      const res = await axios.put(
-        API_ENDPOINTS.EVENTS.BY_ID(eventId),
-        data,
-        {
-          headers,
-          timeout: 120000,
-        }
-      );
+      const res = await axios.put(API_ENDPOINTS.EVENTS.BY_ID(eventId), data, {
+        headers,
+        timeout: 120000,
+      });
 
       return res.data;
     } catch (err) {
-      console.warn('[eventService] updateEvent error:', err?.response?.data || err?.message);
-      throw toFriendlyError(err, 'Unable to update event. Please check the details and try again.');
+      console.warn(
+        '[eventService] updateEvent error:',
+        err?.response?.data || err?.message,
+      );
+      throw toFriendlyError(
+        err,
+        'Unable to update event. Please check the details and try again.',
+      );
     }
   },
 
@@ -321,7 +380,8 @@ export const eventService = {
    */
   async getEventContacts(token, eventId, params = {}) {
     const activeToken = await resolveToken(token);
-    if (!activeToken) throw new Error('Authentication token required. Please log in.');
+    if (!activeToken)
+      throw new Error('Authentication token required. Please log in.');
 
     const res = await axios.get(API_ENDPOINTS.EVENTS.CONTACTS(eventId), {
       headers: { Authorization: `Bearer ${activeToken}` },
@@ -337,7 +397,8 @@ export const eventService = {
    */
   async saveEventContact(token, eventId, contactData) {
     const activeToken = await resolveToken(token);
-    if (!activeToken) throw new Error('Authentication token required. Please log in.');
+    if (!activeToken)
+      throw new Error('Authentication token required. Please log in.');
     if (!eventId) throw new Error('Event ID is required');
 
     try {
@@ -350,13 +411,19 @@ export const eventService = {
             'Content-Type': 'application/json',
           },
           timeout: 15000,
-        }
+        },
       );
 
       return res.data;
     } catch (err) {
-      console.warn('[eventService] saveEventContact error:', err?.response?.data || err?.message);
-      throw toFriendlyError(err, 'Unable to save contact details. Please try again.');
+      console.warn(
+        '[eventService] saveEventContact error:',
+        err?.response?.data || err?.message,
+      );
+      throw toFriendlyError(
+        err,
+        'Unable to save contact details. Please try again.',
+      );
     }
   },
 
@@ -365,7 +432,8 @@ export const eventService = {
    */
   async updateContactStatus(token, eventId, contactId, status) {
     const activeToken = await resolveToken(token);
-    if (!activeToken) throw new Error('Authentication token required. Please log in.');
+    if (!activeToken)
+      throw new Error('Authentication token required. Please log in.');
 
     const res = await axios.patch(
       API_ENDPOINTS.EVENTS.UPDATE_CONTACT_STATUS(eventId, contactId),
@@ -376,7 +444,7 @@ export const eventService = {
           'Content-Type': 'application/json',
         },
         timeout: 10000,
-      }
+      },
     );
 
     return res.data;
@@ -429,7 +497,8 @@ export const eventService = {
    */
   async updateEventContact(token, eventId, contactId, contactData) {
     const activeToken = await resolveToken(token);
-    if (!activeToken) throw new Error('Authentication token required. Please log in.');
+    if (!activeToken)
+      throw new Error('Authentication token required. Please log in.');
 
     try {
       const res = await axios.put(
@@ -441,11 +510,14 @@ export const eventService = {
             'Content-Type': 'application/json',
           },
           timeout: 10000,
-        }
+        },
       );
       return res.data;
     } catch (err) {
-      throw toFriendlyError(err, 'Failed to update contact. Please verify your connection.');
+      throw toFriendlyError(
+        err,
+        'Failed to update contact. Please verify your connection.',
+      );
     }
   },
 
@@ -454,7 +526,8 @@ export const eventService = {
    */
   async deleteEventContact(token, eventId, contactId) {
     const activeToken = await resolveToken(token);
-    if (!activeToken) throw new Error('Authentication token required. Please log in.');
+    if (!activeToken)
+      throw new Error('Authentication token required. Please log in.');
 
     try {
       const res = await axios.delete(
@@ -464,7 +537,7 @@ export const eventService = {
             Authorization: `Bearer ${activeToken}`,
           },
           timeout: 10000,
-        }
+        },
       );
       return res.data;
     } catch (err) {
@@ -483,7 +556,8 @@ export const eventService = {
     }
 
     const cleanDigits = phone.replace(/\D/g, '');
-    const intlPhone = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
+    const intlPhone =
+      cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
     const watermarkedText = appendWhatsAppWatermark(messageText || '');
     const encodedText = encodeURIComponent(watermarkedText);
 
@@ -499,14 +573,17 @@ export const eventService = {
       }
       return { success: true, phone: intlPhone };
     } catch (err) {
-      console.warn('[eventService] openWhatsAppDirect Linking error, using fallback:', err);
+      console.warn(
+        '[eventService] openWhatsAppDirect Linking error, using fallback:',
+        err,
+      );
       try {
         await Linking.openURL(webFallbackUrl);
         return { success: true, phone: intlPhone };
       } catch (fallbackErr) {
         Alert.alert(
           'WhatsApp Not Installed',
-          'Could not launch WhatsApp. Please make sure WhatsApp is installed on your phone.'
+          'Could not launch WhatsApp. Please make sure WhatsApp is installed on your phone.',
         );
         throw fallbackErr;
       }
@@ -524,7 +601,7 @@ export const eventService = {
     phone,
     messageText = '',
     attachments = [],
-    contactMeta = {}
+    contactMeta = {},
   ) {
     if (!phone || !phone.trim()) {
       throw new Error('Phone number is required to send WhatsApp message.');
@@ -539,7 +616,7 @@ export const eventService = {
         {
           companyName: contactMeta.companyName || contactMeta.senderCompany,
           fileName: contactMeta.eventFileName,
-        }
+        },
       );
     }
     finalMessage = appendWhatsAppWatermark(finalMessage);
@@ -559,10 +636,16 @@ export const eventService = {
     }
 
     // Keep only image attachments (e.g. attendee selfie)
-    const imageAttachments = normalizedAttachments.filter((att) => {
+    const imageAttachments = normalizedAttachments.filter(att => {
       const type = (att.type || att.mimeType || '').toLowerCase();
       if (type.startsWith('image/')) return true;
-      const name = (att.name || att.fileName || att.uri || att.url || '').toLowerCase();
+      const name = (
+        att.name ||
+        att.fileName ||
+        att.uri ||
+        att.url ||
+        ''
+      ).toLowerCase();
       return /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(name);
     });
 
@@ -571,20 +654,24 @@ export const eventService = {
     const singleImageAttachment = imageAttachments.slice(0, 1);
 
     if (singleImageAttachment.length === 0) {
-      console.log('[eventService] No selfie image attachment to share as media. Opening WhatsApp with text & sharable link.');
+      console.log(
+        '[eventService] No selfie image attachment to share as media. Opening WhatsApp with text & sharable link.',
+      );
       return this.openWhatsAppDirect(phone, finalMessage);
     }
 
     const { DefaultDialer } = NativeModules;
     if (
       Platform.OS !== 'android' ||
-      (!DefaultDialer?.shareToWhatsAppSmart && !DefaultDialer?.shareToWhatsAppWithFiles)
+      (!DefaultDialer?.shareToWhatsAppSmart &&
+        !DefaultDialer?.shareToWhatsAppWithFiles)
     ) {
       return this.openWhatsAppDirect(phone, finalMessage);
     }
 
     const cleanDigits = phone.replace(/\D/g, '');
-    const intlPhone = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
+    const intlPhone =
+      cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
 
     try {
       if (DefaultDialer?.shareToWhatsAppSmart) {
@@ -613,7 +700,11 @@ export const eventService = {
         // Secondary media fallback: Attempt direct ACTION_SEND if smart sync didn't launch
         if (DefaultDialer?.shareToWhatsAppWithFiles) {
           try {
-            await DefaultDialer.shareToWhatsAppWithFiles(phone, finalMessage, singleImageAttachment);
+            await DefaultDialer.shareToWhatsAppWithFiles(
+              phone,
+              finalMessage,
+              singleImageAttachment,
+            );
             return {
               success: true,
               phone: intlPhone,
@@ -621,7 +712,10 @@ export const eventService = {
               mode: 'action_send_media',
             };
           } catch (filesErr) {
-            console.warn('[eventService] shareToWhatsAppWithFiles secondary fallback error:', filesErr);
+            console.warn(
+              '[eventService] shareToWhatsAppWithFiles secondary fallback error:',
+              filesErr,
+            );
           }
         }
 
@@ -636,10 +730,22 @@ export const eventService = {
         };
       }
 
-      await DefaultDialer.shareToWhatsAppWithFiles(phone, finalMessage, singleImageAttachment);
-      return { success: true, phone: intlPhone, sharedFilesCount: 1, mode: 'action_send_media' };
+      await DefaultDialer.shareToWhatsAppWithFiles(
+        phone,
+        finalMessage,
+        singleImageAttachment,
+      );
+      return {
+        success: true,
+        phone: intlPhone,
+        sharedFilesCount: 1,
+        mode: 'action_send_media',
+      };
     } catch (nativeErr) {
-      console.warn('[eventService] Native attachment share failed, falling back to direct WhatsApp:', nativeErr);
+      console.warn(
+        '[eventService] Native attachment share failed, falling back to direct WhatsApp:',
+        nativeErr,
+      );
       // Fallback: If image cannot be opened due to Android permissions (e.g. expired picker URI)
       // or unavailable files, seamlessly open WhatsApp with the message text so lead capture is NEVER blocked!
       await this.openWhatsAppDirect(phone, finalMessage);
@@ -648,7 +754,9 @@ export const eventService = {
         phone: intlPhone,
         sharedFilesCount: 0,
         mode: 'fallback_direct_link',
-        warning: nativeErr?.message || 'Could not attach image due to file permissions.',
+        warning:
+          nativeErr?.message ||
+          'Could not attach image due to file permissions.',
       };
     }
   },

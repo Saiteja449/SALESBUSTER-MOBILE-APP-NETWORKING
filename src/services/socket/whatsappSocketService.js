@@ -16,7 +16,7 @@ class WhatsAppSocketService {
   }
 
   getSocketUrl() {
-    const raw = API_ENDPOINTS.WHATSAPP.SOCKET_URL || SERVER_ORIGIN || 'https://betaapi.salesbuster.ai';
+    const raw = API_ENDPOINTS.WHATSAPP.SOCKET_URL || SERVER_ORIGIN || 'https://api.salesbuster.ai';
     try {
       const parsed = new URL(raw);
       return parsed.origin;

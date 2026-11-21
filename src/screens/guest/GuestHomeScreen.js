@@ -85,7 +85,9 @@ import {
   appendBusinessInfoLink,
 } from '../../utils/formatters';
 import BrandGradientBackground from '../../components/common/BrandGradientBackground';
+import { SalesBusterLogo } from '../../components/common/BrandLogo';
 import { InlineVideoPlayer } from '../../components/common/InlineVideoPlayer';
+import CountdownBeepPlayer from '../../components/common/CountdownBeepPlayer';
 import { getFullMediaUrl } from '../../utils/constants';
 
 const LAST_EVENT_STORAGE_KEY = 'salesbuster_last_selected_event_id';
@@ -400,30 +402,68 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const keepAudioForAnalysisRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [isTourModalVisible, setIsTourModalVisible] = useState(false);
-  const infoGlowAnim = useRef(new Animated.Value(0)).current;
+  const [isGuestHomeFocused, setIsGuestHomeFocused] = useState(
+    () => navigation?.isFocused?.() ?? true,
+  );
+  const infoPulseAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const glowLoop = Animated.loop(
+    if (!navigation?.addListener) return undefined;
+    const focusSubscription = navigation.addListener('focus', () =>
+      setIsGuestHomeFocused(true),
+    );
+    const blurSubscription = navigation.addListener('blur', () =>
+      setIsGuestHomeFocused(false),
+    );
+    setIsGuestHomeFocused(navigation.isFocused?.() ?? true);
+    return () => {
+      focusSubscription?.();
+      blurSubscription?.();
+    };
+  }, [navigation]);
+
+  useEffect(() => {
+    if (!isGuestHomeFocused || isTourModalVisible) {
+      infoPulseAnim.setValue(0);
+      return undefined;
+    }
+    const pulse = Animated.loop(
       Animated.sequence([
-        Animated.timing(infoGlowAnim, {
+        Animated.timing(infoPulseAnim, {
           toValue: 1,
-          duration: 1400,
+          duration: 567,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-        Animated.timing(infoGlowAnim, {
+        Animated.timing(infoPulseAnim, {
           toValue: 0,
-          duration: 1400,
+          duration: 567,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
       ]),
     );
-    glowLoop.start();
-    return () => glowLoop.stop();
-  }, [infoGlowAnim]);
+    pulse.start();
+    return () => {
+      pulse.stop();
+      infoPulseAnim.stopAnimation();
+      infoPulseAnim.setValue(0);
+    };
+  }, [infoPulseAnim, isGuestHomeFocused, isTourModalVisible]);
 
-  const infoGlowStyle = {
-    opacity: infoGlowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.55] }),
-    transform: [{ scale: infoGlowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.35] }) }],
+  const infoPulseStyle = {
+    opacity: infoPulseAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.72, 1],
+    }),
+    transform: [
+      {
+        scale: infoPulseAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 1.045],
+        }),
+      },
+    ],
   };
 
   const handleTourComplete = useCallback(() => {
@@ -496,7 +536,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       isManuallyEdited: false,
     },
   });
-
   const [manualReviewNotice, setManualReviewNotice] = useState(false);
   const reviewedSessionsRef = useRef(new Set());
 
@@ -713,8 +752,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const [isVoiceModalVisible, setIsVoiceModalVisible] = useState(false);
   const [voiceRecordingSeconds, setVoiceRecordingSeconds] = useState(0);
   const [voiceCountdown, setVoiceCountdown] = useState(null);
+  const [isCountdownBeepPlaying, setIsCountdownBeepPlaying] = useState(false);
   const voiceTimerRef = useRef(null);
   const countdownTimerRef = useRef(null);
+  const countdownBeepActiveRef = useRef(false);
+  const muteBeforeCountdownBeepRef = useRef(false);
 
   // Selfie capture state
   const [selfiePhoto, setSelfiePhoto] = useState(null);
@@ -1116,6 +1158,21 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const liveVoiceRef = useRef(liveVoice);
   liveVoiceRef.current = liveVoice;
 
+  const finishCountdownBeep = useCallback(
+    (resumeListening = true) => {
+      if (!countdownBeepActiveRef.current) return;
+      countdownBeepActiveRef.current = false;
+      setIsCountdownBeepPlaying(false);
+      liveVoiceRef.current?.setMuted?.(muteBeforeCountdownBeepRef.current);
+      if (resumeListening) {
+        setVoiceCountdown(null);
+        setIsListening(true);
+        setVoiceRecordingSeconds(0);
+      }
+    },
+    [],
+  );
+
   // Dynamic recording state: active listening or analysing turns microphone glow from purple to vibrant orange
   const isVoiceActivelyRecording = Boolean(
     (isListening && !liveVoice?.isPaused && voiceCountdown === null) ||
@@ -1230,8 +1287,8 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   // Waveform & Pulse Animation react to speech volume
   useEffect(() => {
     let animLoop;
-    if (isListening) {
-      const vol = liveVoice.inputVolume || 0.15;
+    if (isListening || isVoiceAnalysing) {
+      const vol = isListening ? liveVoice.inputVolume || 0.15 : 0.3;
       const targetScale = Math.min(1.6, Math.max(1, 1 + vol * 1.4));
 
       animLoop = Animated.loop(
@@ -1328,7 +1385,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       waveAnim2.setValue(1);
     }
     return () => animLoop?.stop();
-  }, [isListening, liveVoice.inputVolume]);
+  }, [isListening, isVoiceAnalysing, liveVoice.inputVolume]);
 
   // Live voice duration timer effect (starts counting up only after countdown finishes)
   useEffect(() => {
@@ -1509,37 +1566,29 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
 
   // Open Voice Capture Modal & Start Gemini Live Voice Capture
   const handleOpenVoiceCapture = async () => {
-    // If details are already filled in, show warning and stop opening modal
-    const isFilled = Boolean(
-      hasUnsavedDetails ||
-        (name && name.trim().length > 0) ||
-        (companyName && companyName.trim().length > 0) ||
-        (designation && designation.trim().length > 0) ||
-        (phone && phone.trim().length > 0) ||
-        (summary && summary.trim().length > 0) ||
-        selfiePhoto ||
-        (fieldsRef.current?.name && fieldsRef.current.name.trim().length > 0) ||
-        (fieldsRef.current?.phone &&
-          fieldsRef.current.phone.trim().length > 0) ||
-        (fieldsRef.current?.companyName &&
-          fieldsRef.current.companyName.trim().length > 0) ||
-        (fieldsRef.current?.designation &&
-          fieldsRef.current.designation.trim().length > 0) ||
-        (fieldsRef.current?.summary &&
-          fieldsRef.current.summary.trim().length > 0) ||
-        (contactDetailsRef.current?.name?.value &&
-          contactDetailsRef.current.name.value.trim().length > 0) ||
-        (contactDetailsRef.current?.phone?.value &&
-          contactDetailsRef.current.phone.value.trim().length > 0) ||
-        (contactDetailsRef.current?.companyName?.value &&
-          contactDetailsRef.current.companyName.value.trim().length > 0) ||
-        (contactDetailsRef.current?.designation?.value &&
-          contactDetailsRef.current.designation.value.trim().length > 0) ||
-        (contactDetailsRef.current?.summary?.value &&
-          contactDetailsRef.current.summary.value.trim().length > 0),
+    const visibleFieldValues = {
+      name,
+      phone,
+      companyName,
+      designation,
+      summary,
+    };
+    const allContactFieldsFilled = [
+      'name',
+      'phone',
+      'companyName',
+      'designation',
+      'summary',
+    ].every(field =>
+      String(
+        contactDetailsRef.current[field]?.value ||
+          fieldsRef.current[field] ||
+          visibleFieldValues[field] ||
+          '',
+      ).trim(),
     );
 
-    if (isFilled) {
+    if (allContactFieldsFilled) {
       setShowUnsavedWarning(true);
       return;
     }
@@ -1579,9 +1628,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     }
 
     setVoiceRecordingSeconds(0);
+    countdownBeepActiveRef.current = false;
+    setIsCountdownBeepPlaying(false);
     setIsVoiceModalVisible(true);
     setIsListening(false);
-    setVoiceCountdown(5);
+    setVoiceCountdown(3);
     orangeGlowAnim.setValue(0);
 
     // 5-to-1 Countdown before starting the listening duration count
@@ -1590,7 +1641,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       countdownTimerRef.current = null;
     }
 
-    let count = 5;
+    let count = 3;
     countdownTimerRef.current = setInterval(() => {
       count -= 1;
       if (count > 0) {
@@ -1598,9 +1649,13 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       } else {
         clearInterval(countdownTimerRef.current);
         countdownTimerRef.current = null;
-        setVoiceCountdown(null);
-        setIsListening(true);
-        setVoiceRecordingSeconds(0);
+        muteBeforeCountdownBeepRef.current = Boolean(
+          liveVoiceRef.current?.isMuted,
+        );
+        countdownBeepActiveRef.current = true;
+        liveVoiceRef.current?.setMuted?.(true);
+        setVoiceCountdown(0);
+        setIsCountdownBeepPlaying(true);
       }
     }, 1000);
 
@@ -1618,6 +1673,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         clearInterval(countdownTimerRef.current);
         countdownTimerRef.current = null;
       }
+      finishCountdownBeep(false);
       setVoiceCountdown(null);
       setIsListening(false);
       setIsVoiceModalVisible(false);
@@ -1630,6 +1686,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
 
   const handleFinishVoice = async () => {
     if (isVoiceAnalysing) return;
+    finishCountdownBeep(false);
     if (countdownTimerRef.current) {
       clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
@@ -1646,6 +1703,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
 
   const handleCloseVoiceModal = async () => {
     if (isVoiceAnalysing) return; // Prevent aborting while analysis is active
+    finishCountdownBeep(false);
     if (countdownTimerRef.current) {
       clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
@@ -2579,54 +2637,33 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         >
           {/* 1. TOP ACTION NAVIGATION BAR */}
           <View style={styles.topBar}>
-            {/* Our Products */}
-            <TouchableOpacity
-              style={styles.productsBtn}
-              onPress={() => setIsProductsModalVisible(true)}
-              activeOpacity={0.8}
-            >
-              <GridProductsIcon size={16} color="#9F6EFE" />
-              <Text style={styles.productsBtnText}>Our Products</Text>
-            </TouchableOpacity>
+            <SalesBusterLogo width={142} height={30} />
 
-            {/* Right Action Group: Contacts and Info */}
+            {/* Header actions */}
             <View style={styles.topBarRight}>
-              {/* Contacts Pill Button */}
               <TouchableOpacity
-                style={styles.pillActionBtn}
-                onPress={() => {
-                  navigation?.navigate('EventContacts', {
-                    selectedEventId:
-                      selectedEvent?._id !== 'default'
-                        ? selectedEvent?._id
-                        : undefined,
-                  });
-                }}
-                activeOpacity={0.8}
-              >
-                <UserIcon size={12} color="#A8A8B2" />
-                <Text style={styles.pillActionBtnText}>Contacts</Text>
-              </TouchableOpacity>
-
-              {/* Info Guide Circle Button - Opens GuestTourModal */}
-              <TouchableOpacity
-                style={styles.infoCircleBtn}
+                style={styles.headerActionBtn}
                 onPress={() => setIsTourModalVisible(true)}
                 activeOpacity={0.8}
               >
-                <Animated.View
-                  pointerEvents="none"
-                  style={[styles.infoGlowHalo, infoGlowStyle]}
-                />
-                <ExactInfoIcon size={16} color="#0B0A1F" />
+                <Animated.View style={[styles.infoActionContent, infoPulseStyle]}>
+                  <ExactInfoIcon size={16} color="#E7D9FF" />
+                  <Text style={styles.headerActionText}>Info</Text>
+                </Animated.View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerActionBtn}
+                onPress={() => setIsProductsModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <GridProductsIcon size={16} color="#9F6EFE" />
+                <Text style={styles.headerActionText}>Products</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* 2. EVENT TITLE & LOCATION HEADER */}
-          <View
-            style={styles.eventHeader}
-          >
+          {/* 2. CONTACT CATEGORY */}
+          <View style={styles.eventHeader}>
             <View style={styles.eventTitleContainer}>
               <TouchableOpacity
                 style={styles.eventTitleRow}
@@ -2638,53 +2675,43 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                   }
                 }}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Choose contact category"
               >
                 <Text style={styles.eventTitle} numberOfLines={1}>
                   {selectedEvent?.name || 'Add a contact category'}
                 </Text>
                 <View style={styles.dropdownCircle}>
-                  <ChevronDownIcon size={24} color="#CBD5E1" />
+                  <ChevronDownIcon size={22} color="#CBD5E1" />
                 </View>
               </TouchableOpacity>
             </View>
 
-            <View style={styles.locationRow}>
-              <View
-                style={styles.locationSelectArea}
+            {events.length > 0 ? (
+              <TouchableOpacity
+                style={styles.categoryPromptButton}
+                onPress={() => {
+                  if (navigation) {
+                    navigation.navigate('NewEvent', {
+                      onEventCreated: created => {
+                        setEvents(prev => [created, ...prev]);
+                        setSelectedEvent(created);
+                      },
+                    });
+                  } else {
+                    setIsNewEventModalVisible(true);
+                  }
+                }}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Add new contact category"
               >
-                {selectedEvent?.venue || selectedEvent?.location ? (
-                  <>
-                    <LocationPinIcon size={14} color="#8F90A6" />
-                    <Text style={styles.locationText} numberOfLines={1}>
-                      {selectedEvent.venue || selectedEvent.location}
-                    </Text>
-                  </>
-                ) : null}
-              </View>
-              {events.length > 0 ? (
-                <TouchableOpacity
-                  style={styles.addCategoryInlineBtn}
-                  onPress={() => {
-                    if (navigation) {
-                      navigation.navigate('NewEvent', {
-                        onEventCreated: created => {
-                          setEvents(prev => [created, ...prev]);
-                          setSelectedEvent(created);
-                        },
-                      });
-                    } else {
-                      setIsNewEventModalVisible(true);
-                    }
-                  }}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Create contact category"
-                >
-                  <PlusIcon size={13} color="#C4B5FD" />
-                  <Text style={styles.addCategoryInlineBtnText}>New category</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
+                <PlusIcon size={13} color="#C4B5FD" />
+                <Text style={styles.categoryPromptButtonText}>
+                  Add new contact category
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           {/* 3. DUAL CAPTURE CARDS: CAPTURE VOICE & CAPTURE CARD */}
@@ -2695,7 +2722,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               activeOpacity={0.8}
               disabled={isScanningCard}
             >
-              <ExactCaptureVoiceIcon size={40} />
+              <ExactCaptureVoiceIcon size={32} />
               <Text style={styles.captureCardBigTitle}>Capture Voice</Text>
             </TouchableOpacity>
 
@@ -2709,10 +2736,10 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 <ActivityIndicator
                   size="small"
                   color="#A855F7"
-                  style={{ marginVertical: 8 }}
+                  style={{ marginVertical: 4 }}
                 />
               ) : (
-                <ExactCaptureCameraIcon size={40} bg="#0B0A1F" />
+                <ExactCaptureCameraIcon size={32} bg="#0B0A1F" />
               )}
               <Text style={styles.captureCardBigTitle}>
                 {isScanningCard ? 'Analyzing Card...' : 'Capture Card'}
@@ -2934,29 +2961,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             </TouchableOpacity>
           </View>
 
-          {/* View Your Profile Prominent Button */}
-          <TouchableOpacity
-            style={styles.viewProfileBtn}
-            onPress={() => navigation?.navigate('GuestAccount')}
-            activeOpacity={0.82}
-          >
-            <View style={styles.viewProfileLeft}>
-              <View style={styles.viewProfileAvatar}>
-                <Text style={styles.viewProfileAvatarText}>
-                  {(user?.name || 'U').charAt(0).toUpperCase()}
-                </Text>
-              </View>
-              <View style={styles.viewProfileTextCol}>
-                <Text style={styles.viewProfileTitle}>View Your Profile</Text>
-                <Text style={styles.viewProfileSubtitle}>
-                  {user?.name || 'Guest User'} • Account, Settings & Policies
-                </Text>
-              </View>
-            </View>
-            <View style={styles.viewProfileArrowWrap}>
-              <ChevronRightIcon size={18} color="#A78BFA" />
-            </View>
-          </TouchableOpacity>
         </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
 
@@ -3232,7 +3236,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             <View style={styles.dialogInputWrap}>
               <Text style={styles.dialogLabel}>DESCRIPTION</Text>
               <TextInput
-                style={[styles.dialogInput, { height: 70 }]}
+                style={[styles.dialogInput, { height: 77 }]}
                 placeholder="Optional notes or booth number..."
                 placeholderTextColor="#64748B"
                 multiline
@@ -3777,6 +3781,9 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         onRequestClose={handleCloseVoiceModal}
       >
         <View style={styles.voiceModalOverlay}>
+          {isCountdownBeepPlaying && (
+            <CountdownBeepPlayer onFinished={() => finishCountdownBeep(true)} />
+          )}
           <View style={styles.voiceModalSheet}>
             {/* Top Close Button (X in circle) - Hidden during AI Analysis to prevent aborting */}
             {!isVoiceAnalysing && (
@@ -3792,7 +3799,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             {/* Microphone Area with Audio Waveforms and Glowing Halo */}
             <View style={styles.voiceModalMicArea}>
               {/* Left Animated Waveform Bars */}
-              {!isVoiceAnalysing && (
+              {
                 <View style={styles.voiceModalWaveGroupLeft}>
                   {WAVE_BARS_LEFT.map((bar, idx) => (
                     <Animated.View
@@ -3805,7 +3812,8 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                           transform: [
                             {
                               scaleY:
-                                isListening && !liveVoice?.isPaused
+                                (isListening && !liveVoice?.isPaused) ||
+                                isVoiceAnalysing
                                   ? idx % 2 === 0
                                     ? waveAnim1
                                     : waveAnim2
@@ -3817,7 +3825,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                     />
                   ))}
                 </View>
-              )}
+              }
 
               {/* Center Mic Button & Glowing Concentric Aura */}
               <View style={styles.voiceModalMicCenter}>
@@ -4007,7 +4015,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 >
                   {isVoiceAnalysing ? (
                     <ActivityIndicator size="small" color="#F97316" />
-                  ) : voiceCountdown !== null && voiceCountdown > 0 ? (
+                  ) : voiceCountdown !== null ? (
                     <Text style={styles.countdownNumberText}>
                       {voiceCountdown}
                     </Text>
@@ -4018,7 +4026,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               </View>
 
               {/* Right Animated Waveform Bars */}
-              {!isVoiceAnalysing && (
+              {
                 <View style={styles.voiceModalWaveGroupRight}>
                   {WAVE_BARS_RIGHT.map((bar, idx) => (
                     <Animated.View
@@ -4031,7 +4039,8 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                           transform: [
                             {
                               scaleY:
-                                isListening && !liveVoice?.isPaused
+                                (isListening && !liveVoice?.isPaused) ||
+                                isVoiceAnalysing
                                   ? idx % 2 === 0
                                     ? waveAnim2
                                     : waveAnim1
@@ -4043,7 +4052,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                     />
                   ))}
                 </View>
-              )}
+              }
             </View>
 
             {isVoiceAnalysing ? (
@@ -4148,8 +4157,10 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                     ]}
                   />
                   <Text style={styles.voiceStatusText}>
-                    {voiceCountdown !== null && voiceCountdown > 0
-                      ? `Starting in ${voiceCountdown}s...`
+                    {voiceCountdown !== null
+                      ? voiceCountdown > 0
+                        ? `Starting in ${voiceCountdown}s...`
+                        : 'Starting...'
                       : liveVoice?.isPaused
                       ? 'Paused...... '
                       : 'Listening...... '}
@@ -4381,11 +4392,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 18,
+    minHeight: 40,
   },
   topBarRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+  },
+  headerActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#302B4C',
+    backgroundColor: '#15132D',
+  },
+  infoActionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  headerActionText: {
+    color: '#E7D9FF',
+    fontSize: 12,
+    fontFamily: Fonts.family.semiBold,
   },
   infoButton: {
     position: 'absolute',
@@ -4400,34 +4435,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#454064',
     zIndex: 5,
-  },
-  productsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingRight: 6,
-  },
-  productsBtnText: {
-    color: '#9F6EFE',
-    fontSize: 12,
-    fontFamily: Fonts.family.semiBold,
-    marginLeft: 6,
-  },
-  pillActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0B0A1F',
-    borderColor: '#26243A',
-    borderWidth: 1.2,
-    borderRadius: 22,
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-  },
-  pillActionBtnText: {
-    color: '#A8A8B2',
-    fontSize: 12,
-    fontFamily: Fonts.family.semiBold,
-    marginLeft: 6,
   },
 
   // 2. EVENT HEADER
@@ -4461,19 +4468,21 @@ const styles = StyleSheet.create({
   },
   eventTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 20,
     fontFamily: Fonts.family.bold,
     letterSpacing: 0.3,
     maxWidth: 280,
   },
   dropdownCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 11,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#232438',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
+    borderWidth:1,
+    borderColor:"#25138dff"
   },
   locationRow: {
     flexDirection: 'row',
@@ -4498,24 +4507,26 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     flexShrink: 1,
   },
-  addCategoryInlineBtn: {
+  categoryPromptButton: {
+    alignSelf: 'center',
+    minHeight: 32,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: 'rgba(21, 19, 45, 0.75)',
+    borderWidth: 1,
+    borderColor: '#30264A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(139, 92, 246, 0.12)',
-    borderColor: 'rgba(167, 139, 250, 0.38)',
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
+    gap: 6,
   },
-  addCategoryInlineBtnText: {
-    color: '#C4B5FD',
+  categoryPromptButtonText: {
+    color: '#B7A5DB',
     fontSize: 10,
-    fontFamily: Fonts.family.semiBold,
-    marginLeft: 4,
+    fontFamily: Fonts.family.medium,
   },
-
   // 3. VOICE SECTION
   voiceSection: {
     alignItems: 'center',
@@ -4946,7 +4957,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#1B1C2E',
     borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'ios' ? 18 : 18,
+    paddingVertical: 10,
+    minHeight: 51,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.04)',
@@ -4986,7 +4998,7 @@ const styles = StyleSheet.create({
   },
   countryCodeText: {
     color: '#8F90A6',
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: Fonts.family.medium,
   },
   phoneDivider: {
@@ -5002,11 +5014,11 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   summaryCard: {
-    minHeight: 110,
+    minHeight: 121,
     paddingVertical: 14,
   },
   summaryInput: {
-    minHeight: 85,
+    minHeight: 72,
   },
 
   // 5. SUBMIT BUTTON
@@ -5030,73 +5042,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontFamily: Fonts.family.bold,
-  },
-
-  // Prominent View Profile button
-  viewProfileBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#16142B',
-    borderRadius: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginTop: 20,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.28)',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  viewProfileLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  viewProfileAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#7C3AED',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 1.5,
-    borderColor: '#A78BFA',
-  },
-  viewProfileAvatarText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontFamily: Fonts.family.bold,
-  },
-  viewProfileTextCol: {
-    flex: 1,
-  },
-  viewProfileTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontFamily: Fonts.family.bold,
-    letterSpacing: 0.2,
-  },
-  viewProfileSubtitle: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontFamily: Fonts.family.medium,
-    marginTop: 2,
-  },
-  viewProfileArrowWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(124, 58, 237, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(167, 139, 250, 0.35)',
-    marginLeft: 8,
   },
 
   // Account footer link
@@ -5382,6 +5327,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     paddingHorizontal: 14,
     paddingVertical: 10,
+    minHeight: 51,
     fontSize: 14,
   },
   dialogSubmitBtn: {
@@ -6053,8 +5999,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     padding: 10,
-    minHeight: 76,
-    maxHeight: 130,
+    minHeight: 84,
+    maxHeight: 143,
     textAlignVertical: 'top',
   },
   attachmentsList: {
@@ -6194,45 +6140,28 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.bold,
   },
 
-  infoCircleBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 16,
-    backgroundColor: '#CBD5E1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 2,
-    zIndex: 1,
-  },
-  infoGlowHalo: {
-    position: 'absolute',
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#A78BFA',
-  },
   captureCardsRow: {
     flexDirection: 'row',
-    gap: 14,
-    marginTop: 8,
-    marginBottom: 12,
+    gap: 12,
+    marginTop: 6,
+    marginBottom: 10,
   },
   captureCardBig: {
     flex: 1,
     backgroundColor: '#0B0A1F',
     borderWidth: 1.5,
     borderColor: '#26243A',
-    borderRadius: 24,
-    paddingVertical: 21,
+    borderRadius: 20,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 102,
+    minHeight: 88,
   },
   captureCardBigTitle: {
     color: '#CBD5E1',
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: Fonts.family.semiBold,
-    marginTop: 14,
+    marginTop: 10,
     letterSpacing: 0.2,
   },
   unsavedWarningText: {
@@ -6248,14 +6177,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   selfieLabelContainer: {
     flex: 1,
   },
   selfieLabel: {
     color: '#ADADAD',
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: Fonts.family.regular,
   },
   selfieOptional: {
@@ -6319,7 +6248,7 @@ const styles = StyleSheet.create({
   },
   bottomResetBtnText: {
     color: '#A855F7',
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: Fonts.family.semiBold,
   },
   bottomSaveBtn: {
@@ -6350,9 +6279,8 @@ const styles = StyleSheet.create({
   },
   bottomSaveBtnText: {
     color: '#FFFFFF',
-    fontSize: 15.5,
-    fontFamily: Fonts.family.bold,
-    fontWeight: '700',
+    fontSize: 13,
+    fontFamily: Fonts.family.semiBold,
     marginRight: 9,
   },
   bottomSaveBtnWaWrap: {

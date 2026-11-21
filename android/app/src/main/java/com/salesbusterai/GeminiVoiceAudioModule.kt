@@ -49,7 +49,7 @@ class GeminiVoiceAudioModule(private val reactContext: ReactApplicationContext) 
     private var acousticEchoCanceler: AcousticEchoCanceler? = null
     private var noiseSuppressor: NoiseSuppressor? = null
     private var isRecording = false
-    private var isMuted = false
+    @Volatile private var isMuted = false
     private var useAudioEffects = true
     private var recordingThread: Thread? = null
     @Volatile private var captureToFile = false
@@ -272,7 +272,6 @@ class GeminiVoiceAudioModule(private val reactContext: ReactApplicationContext) 
             applyAudioRouting()
             record.startRecording()
             isRecording = true
-            isMuted = false
             if (captureToFile) {
                 capturedPcmFile = java.io.File(reactContext.cacheDir, "guest_voice_${System.currentTimeMillis()}.wav")
                 capturedPcmStream = java.io.RandomAccessFile(capturedPcmFile, "rw").apply {
@@ -301,6 +300,7 @@ class GeminiVoiceAudioModule(private val reactContext: ReactApplicationContext) 
                 } catch (_: Exception) {}
                 // Buffer of 2048 bytes (1024 samples = 64ms at 16kHz) halves bridge traffic
                 val buffer = ByteArray(2048)
+                val silenceBuffer = ByteArray(buffer.size)
                 var lastInputVolEmitTime = 0L
                 var lastPeakLogTime = System.currentTimeMillis()
                 var currentSecondPeakAmplitude = 0
@@ -308,10 +308,15 @@ class GeminiVoiceAudioModule(private val reactContext: ReactApplicationContext) 
                 while (isRecording) {
                     val bytesRead = audioRecord?.read(buffer, 0, buffer.size) ?: -1
                     if (bytesRead > 0) {
+                        val mutedForChunk = isMuted
                         val numSamples = bytesRead / 2
                         if (captureToFile) {
                             try {
-                                capturedPcmStream?.write(buffer, 0, bytesRead)
+                                capturedPcmStream?.write(
+                                    if (mutedForChunk) silenceBuffer else buffer,
+                                    0,
+                                    bytesRead
+                                )
                                 capturedPcmBytes += bytesRead
                             } catch (e: Exception) {
                                 android.util.Log.e(MODULE_NAME, "Failed writing guest voice capture", e)
@@ -355,7 +360,7 @@ class GeminiVoiceAudioModule(private val reactContext: ReactApplicationContext) 
                         }
 
                         // Emit audio chunk immediately without bridge delay
-                        if (!isMuted) {
+                        if (!mutedForChunk) {
                             val base64Chunk = Base64.encodeToString(buffer, 0, bytesRead, Base64.NO_WRAP)
                             sendEvent("onAudioChunk", base64Chunk)
                         }
@@ -429,6 +434,7 @@ class GeminiVoiceAudioModule(private val reactContext: ReactApplicationContext) 
             capturedPcmFile = null
             capturedPcmBytes = 0L
             capturedPcmStartTime = 0L
+            isMuted = false
             if (captureFile != null && captureFile.exists() && captureBytes > 0) {
                 promise.resolve(Arguments.createMap().apply {
                     putString("filePath", captureFile.absolutePath)

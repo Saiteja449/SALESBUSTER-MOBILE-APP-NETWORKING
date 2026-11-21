@@ -792,14 +792,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 14,
     paddingHorizontal: 14,
-    minHeight: 52,
+    minHeight: 51,
   },
   phoneInputWrapper: {
     paddingHorizontal: 14,
   },
   countryCodeText: {
     color: '#8F90A6',
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: Fonts.family.medium,
   },
   phoneDivider: {
@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Fonts.family.regular,
     color: '#ADADAD',
-    paddingVertical: 14,
+    paddingVertical: 10,
   },
   eyeButton: {
     paddingLeft: 10,

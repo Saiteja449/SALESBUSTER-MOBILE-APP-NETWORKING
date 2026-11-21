@@ -703,8 +703,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E1F35',
     borderRadius: 14,
     paddingHorizontal: 16,
-    paddingVertical: Platform.OS === 'ios' ? 14 : 12,
-    minHeight: 52,
+    paddingVertical: Platform.OS === 'ios' ? 11 : 10,
+    minHeight: 51,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.04)',
@@ -719,18 +719,18 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     color: '#8F90A6',
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: Fonts.family.regular,
   },
   requiredAsterisk: {
     color: '#EF4444',
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: Fonts.family.bold,
     marginLeft: 2,
   },
   textInput: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: Fonts.family.regular,
     padding: 0,
     margin: 0,
@@ -738,8 +738,8 @@ const styles = StyleSheet.create({
 
   // DATE CARD
   dateCard: {
-    minHeight: 52,
-    paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+    minHeight: 51,
+    paddingVertical: Platform.OS === 'ios' ? 11 : 10,
   },
   dateCardContent: {
     flexDirection: 'row',
@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
   },
   pickerButtonText: {
     color: '#8F90A6',
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: Fonts.family.regular,
   },
   pickerButtonTextActive: {
@@ -793,15 +793,15 @@ const styles = StyleSheet.create({
 
   // CUSTOM MESSAGE CARD
   customMessageCard: {
-    minHeight: 92,
-    paddingVertical: 14,
+    minHeight: 81,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
   customMessageInput: {
     flex: 1,
-    minHeight: 64,
+    minHeight: 56,
     color: '#FFFFFF',
     fontSize: 14,
     fontFamily: Fonts.family.regular,

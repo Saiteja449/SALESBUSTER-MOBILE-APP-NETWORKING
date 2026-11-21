@@ -1094,7 +1094,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(168, 85, 247, 0.22)',
     paddingHorizontal: 14,
-    height: 48,
+    height: 51,
     gap: 10,
   },
   textInput: {
