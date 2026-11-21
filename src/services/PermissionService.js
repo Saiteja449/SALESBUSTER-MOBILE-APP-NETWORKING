@@ -2,11 +2,9 @@ import { Linking, PermissionsAndroid, Platform } from 'react-native';
 import {
   checkBatteryOptimizationExempt,
   checkPermissionHealth,
-  rebindRecordingWatchers,
   requestAllFilesAccess,
   requestBatteryOptimizationExempt,
 } from './native/DefaultDialer';
-import { startCallMonitorService } from './native/PostCallBridge';
 
 export const PERMISSION_STATUS = {
   GRANTED: 'granted',
@@ -236,7 +234,7 @@ export const requestPermissionById = async (permissionId, currentStatus) => {
         const readRes = await PermissionsAndroid.request(readPerm, {
           title: 'Contacts Access',
           message:
-            'SalesBuster needs contacts access to recognize WhatsApp contacts and sync event attendees.',
+            'SalesBuster needs contacts access to recognize WhatsApp contacts and sync your saved contacts.',
           buttonPositive: 'Allow',
           buttonNegative: 'Not Now',
         });
@@ -270,7 +268,7 @@ export const requestPermissionById = async (permissionId, currentStatus) => {
           {
             title: 'Camera Access for Attendee Capture',
             message:
-              'SalesBuster needs camera access so you can take attendee selfies and photograph business cards to attach to your event leads. Photos are stored securely in your workspace and never shared without your permission.',
+              'SalesBuster needs camera access so you can take contact selfies and photograph business cards to save with your contact categories. Photos are stored securely in your workspace and never shared without your permission.',
             buttonPositive: 'Allow',
             buttonNegative: 'Not Now',
           },
@@ -303,16 +301,4 @@ export const requestPermissionById = async (permissionId, currentStatus) => {
   }
 };
 
-/**
- * Initialize background call/recording watchers for Sales Representatives when permitted.
- */
-export const initializeSalesRepServices = async () => {
-  if (Platform.OS !== 'android') return;
-  try {
-    await rebindRecordingWatchers();
-    await startCallMonitorService();
-  } catch (error) {
-    console.warn('Error initializing call monitor services:', error);
-  }
-};
 

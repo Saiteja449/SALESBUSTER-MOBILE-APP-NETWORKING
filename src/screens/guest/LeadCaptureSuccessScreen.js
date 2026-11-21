@@ -79,7 +79,7 @@ const DEFAULT_SERVICES = [
     imageUrl: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=400&q=80',
     fallbackBg: '#162338',
     description:
-      'Launch high-conversion broadcast campaigns, promotional announcements, and event reminders with enterprise-grade deliverability.',
+      'Launch high-conversion broadcast campaigns, promotional announcements, and contact follow-up reminders with enterprise-grade deliverability.',
     features: [
       'Targeted broadcast messaging',
       'Automated opt-in & click tracking',
@@ -119,7 +119,7 @@ const DEFAULT_SERVICES = [
 export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
   const {
     name = 'Attendee',
-    eventName = 'our event',
+    eventName = 'this category',
     phone,
     messageText,
   } = route?.params || {};
@@ -286,7 +286,7 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
           {/* Titles */}
           <Text style={styles.title}>Saved Successfully</Text>
           <Text style={styles.subtitle}>
-            {name} has been added to {eventName}.
+            {name} has been added to the {eventName} contact category.
           </Text>
         </View>
 

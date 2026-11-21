@@ -1,18 +1,11 @@
-export const PERMISSION_SETUP_STORAGE_PREFIX = '@permission_setup_completed';
+const PERMISSION_SETUP_STORAGE_PREFIX = '@permission_setup_completed';
 
-export const USER_ROLE_KEYS = {
+const USER_ROLE_KEYS = {
   GUEST: 'guest',
 };
 
-export const ROLE_LABELS = {
+const ROLE_LABELS = {
   [USER_ROLE_KEYS.GUEST]: 'Workspace',
-};
-
-/**
- * Resolve the normalized role key from the authenticated AuthContext user object.
- */
-export const resolveUserRoleKey = (user) => {
-  return USER_ROLE_KEYS.GUEST;
 };
 
 /**
@@ -76,7 +69,7 @@ const PERMISSION_CATALOG = {
   },
 };
 
-export const GUEST_PERMISSIONS = [
+const GUEST_PERMISSIONS = [
   PERMISSION_CATALOG.camera,
   PERMISSION_CATALOG.microphone,
   PERMISSION_CATALOG.notifications,

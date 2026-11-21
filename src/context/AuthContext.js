@@ -8,17 +8,6 @@ import { whatsappSocketService } from '../services/socket/whatsappSocketService'
 
 const AuthContext = createContext(null);
 
-let globalSetSuspendedHandler = null;
-
-export const triggerGlobalSuspension = (message) => {
-  if (globalSetSuspendedHandler) {
-    globalSetSuspendedHandler(
-      message ||
-      'Your organization workspace (Demo CRM) is currently suspended. Please contact SalesBuster administrator.'
-    );
-  }
-};
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -46,13 +35,6 @@ export const AuthProvider = ({ children }) => {
     setIsSuspended(true);
     setSuspensionMessage(displayMsg);
   }, []);
-
-  useEffect(() => {
-    globalSetSuspendedHandler = handleSuspension;
-    return () => {
-      globalSetSuspendedHandler = null;
-    };
-  }, [handleSuspension]);
 
   // Check organization status and unsuspended state
   const checkOrganizationStatus = useCallback(async () => {
@@ -122,7 +104,12 @@ export const AuthProvider = ({ children }) => {
         message: errData?.message || error.message,
       };
     }
-  }, [user?.token, isSuspended]);
+  }, [
+    user?.token,
+    user?.accountType,
+    user?.organization?.accountType,
+    isSuspended,
+  ]);
 
   // Setup Axios global response & error interceptors to catch suspended org status across ALL APIs
   useEffect(() => {
@@ -356,7 +343,6 @@ export const AuthProvider = ({ children }) => {
       if (data.phone) {
         await saveUserPhoneNumber(data.phone);
       }
-
       setIsSuspended(false);
       setSuspensionMessage('');
       return { success: true, user: userWithToken };
@@ -420,9 +406,7 @@ export const AuthProvider = ({ children }) => {
       };
 
       setUser(userWithToken);
-      setIsAuthenticated(true);
       await AsyncStorage.setItem('mysalespilot_token', data.token);
-      await AsyncStorage.setItem('mysalespilot_session_user', JSON.stringify(userWithToken));
       await setPostCallPopupEnabled(false);
       if (data.token) {
         await saveAuthToken(data.token);
@@ -430,6 +414,9 @@ export const AuthProvider = ({ children }) => {
       if (data.phone) {
         await saveUserPhoneNumber(data.phone);
       }
+      // New users remain in the onboarding flow until their profile is saved.
+      setIsAuthenticated(isProfileComplete);
+      await AsyncStorage.setItem('mysalespilot_session_user', JSON.stringify(userWithToken));
 
       setIsSuspended(false);
       setSuspensionMessage('');
@@ -472,11 +459,13 @@ export const AuthProvider = ({ children }) => {
         city: data.city !== undefined ? data.city : (city || ''),
         email: data.email !== undefined ? data.email : (email || ''),
         isProfileComplete: true,
+        token: data.token || user?.token,
         organization: data.organization || user?.organization,
         avatar: (data.name || name || 'Guest').substring(0, 2).toUpperCase(),
       };
 
       setUser(updatedUser);
+      setIsAuthenticated(true);
       await AsyncStorage.setItem('mysalespilot_session_user', JSON.stringify(updatedUser));
       if (data.token) {
         await AsyncStorage.setItem('mysalespilot_token', data.token);
@@ -490,10 +479,6 @@ export const AuthProvider = ({ children }) => {
       return { success: false, message };
     }
   }, [user]);
-
-  const updateProfile = useCallback((updates) => {
-    setUser((prev) => ({ ...prev, ...updates }));
-  }, []);
 
   const isGuest = Boolean(
     user?.accountType === 'guest' ||
@@ -519,7 +504,6 @@ export const AuthProvider = ({ children }) => {
       verifyOtp,
       completeProfile,
       logout,
-      updateProfile,
     }),
     [
       user,
@@ -536,7 +520,6 @@ export const AuthProvider = ({ children }) => {
       verifyOtp,
       completeProfile,
       logout,
-      updateProfile,
     ]
   );
 

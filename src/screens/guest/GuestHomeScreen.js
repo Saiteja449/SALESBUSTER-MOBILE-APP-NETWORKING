@@ -77,7 +77,6 @@ import {
 import { OrgOwnerTabBar } from '../../components/common/OrgOwnerTabBar';
 import { useGuestAlert } from '../../components/guest/GuestAlert';
 import GuestTourModal from '../../components/guest/GuestTourModal';
-import GuestActionableGuidance from '../../components/guest/GuestActionableGuidance';
 import {
   getFriendlyErrorMessage,
   populateWhatsAppMessage,
@@ -90,7 +89,6 @@ import { InlineVideoPlayer } from '../../components/common/InlineVideoPlayer';
 import { getFullMediaUrl } from '../../utils/constants';
 
 const LAST_EVENT_STORAGE_KEY = 'salesbuster_last_selected_event_id';
-const CAPTURE_GUIDE_SEEN_KEY = '@guest_capture_guide_seen';
 const { GeminiVoiceAudioModule } = NativeModules;
 
 const PRODUCTS_CATALOG = [
@@ -147,7 +145,7 @@ const PRODUCTS_CATALOG = [
       'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=400&q=80',
     fallbackBg: '#162338',
     description:
-      'Launch high-conversion broadcast campaigns, promotional announcements, and event reminders with enterprise-grade deliverability.',
+      'Launch high-conversion broadcast campaigns, promotional announcements, and contact follow-up reminders with enterprise-grade deliverability.',
     features: [
       'Targeted broadcast messaging',
       'Automated opt-in & click tracking',
@@ -360,6 +358,18 @@ const ExactInfoIcon = ({ size = 16, color = '#0B0A1F' }) => (
   </Svg>
 );
 
+const LightbulbIcon = ({ size = 17, color = '#FBBF24' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M9 18h6m-5 3h4m-2-19a7 7 0 0 0-4 12.745c.54.39.9.975 1 1.605h6c.1-.63.46-1.215 1-1.605A7 7 0 0 0 12 2Z"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const { showGuestAlert, guestAlertModal } = useGuestAlert();
   const { token: ctxToken, user, logout } = useAuth();
@@ -390,137 +400,35 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const keepAudioForAnalysisRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [isTourModalVisible, setIsTourModalVisible] = useState(false);
-  const [isActionableGuideVisible, setIsActionableGuideVisible] = useState(false);
-  const scrollViewRef = useRef(null);
-  const guidanceEventRef = useRef(null);
-  const guidanceVoiceRef = useRef(null);
-  const guidanceCameraRef = useRef(null);
-  const guidanceFormRef = useRef(null);
-  const guidanceSaveRef = useRef(null);
-  const guidanceContactsRef = useRef(null);
-  const guidanceProductsRef = useRef(null);
-  const [guidanceTargets, setGuidanceTargets] = useState({});
+  const infoGlowAnim = useRef(new Animated.Value(0)).current;
 
-  // Promise-based target measurement with zero hardcoded assumptions
-  const measureTargetAsync = useCallback(ref => {
-    return new Promise(resolve => {
-      if (!ref?.current?.measureInWindow) {
-        return resolve(null);
-      }
-      try {
-        ref.current.measureInWindow((x, y, width, height) => {
-          if (width > 0 && height > 0) {
-            resolve({ x, y, width, height });
-          } else {
-            resolve(null);
-          }
-        });
-      } catch {
-        resolve(null);
-      }
-    });
-  }, []);
+  useEffect(() => {
+    const glowLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(infoGlowAnim, {
+          toValue: 1,
+          duration: 1400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(infoGlowAnim, {
+          toValue: 0,
+          duration: 1400,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    glowLoop.start();
+    return () => glowLoop.stop();
+  }, [infoGlowAnim]);
 
-  const measureGuidanceTargets = useCallback(async () => {
-    try {
-      const [events, audio, image, form, save, contacts] = await Promise.all([
-        measureTargetAsync(guidanceEventRef),
-        measureTargetAsync(guidanceVoiceRef),
-        measureTargetAsync(guidanceCameraRef),
-        measureTargetAsync(guidanceFormRef),
-        measureTargetAsync(guidanceSaveRef),
-        measureTargetAsync(guidanceContactsRef),
-      ]);
-
-      const measurements = {};
-      if (events) measurements.events = events;
-      if (audio) measurements.audio = audio;
-      if (image) measurements.image = image;
-      if (form) measurements.form = form;
-      if (save) measurements.save = save;
-      if (contacts) measurements.contacts = contacts;
-
-      setGuidanceTargets(prev => {
-        let hasDiff = false;
-        for (const k in measurements) {
-          const p = prev[k];
-          const n = measurements[k];
-          if (
-            !p ||
-            Math.abs(p.x - n.x) > 1.5 ||
-            Math.abs(p.y - n.y) > 1.5 ||
-            Math.abs(p.width - n.width) > 1.5 ||
-            Math.abs(p.height - n.height) > 1.5
-          ) {
-            hasDiff = true;
-            break;
-          }
-        }
-        return hasDiff ? { ...prev, ...measurements } : prev;
-      });
-    } catch {
-      // Safe fallback
-    }
-  }, [measureTargetAsync]);
-
-  const handleGuidanceStepChange = useCallback((stepIndex, stepKey) => {
-    if (stepKey === 'save') {
-      if (scrollViewRef.current?.scrollToEnd) {
-        scrollViewRef.current.scrollToEnd(true);
-      } else if (scrollViewRef.current?.scrollTo) {
-        scrollViewRef.current.scrollTo({ y: 600, animated: true });
-      }
-    } else {
-      if (scrollViewRef.current?.scrollToPosition) {
-        scrollViewRef.current.scrollToPosition(0, 0, true);
-      } else if (scrollViewRef.current?.scrollTo) {
-        scrollViewRef.current.scrollTo({ y: 0, animated: true });
-      }
-    }
-
-    // Schedule re-measurement once scroll settle animation completes
-    requestAnimationFrame(() => {
-      measureGuidanceTargets();
-      setTimeout(measureGuidanceTargets, 260);
-    });
-  }, [measureGuidanceTargets]);
+  const infoGlowStyle = {
+    opacity: infoGlowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.55] }),
+    transform: [{ scale: infoGlowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.35] }) }],
+  };
 
   const handleTourComplete = useCallback(() => {
     setIsTourModalVisible(false);
   }, []);
-
-  useEffect(() => {
-    if (!isGuest) return;
-    let isMounted = true;
-    const guideKey = `${CAPTURE_GUIDE_SEEN_KEY}:${
-      user?.id || user?._id || user?.email || 'guest'
-    }`;
-    AsyncStorage.getItem(guideKey)
-      .then(seen => {
-        if (isMounted && seen !== 'true') {
-          setTimeout(() => {
-            if (isMounted) {
-              measureGuidanceTargets();
-              setIsActionableGuideVisible(true);
-            }
-          }, 400);
-          AsyncStorage.setItem(guideKey, 'true').catch(() => {});
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setTimeout(() => {
-            if (isMounted) {
-              measureGuidanceTargets();
-              setIsActionableGuideVisible(true);
-            }
-          }, 400);
-        }
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [isGuest, measureGuidanceTargets, user?.id, user?._id, user?.email]);
 
   // WhatsApp Confirmation Modal State
   const [isWhatsAppConfirmVisible, setIsWhatsAppConfirmVisible] =
@@ -1768,7 +1676,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         {
           title: 'Camera Access for Attendee Capture',
           message:
-            'SalesBuster needs camera access so you can take attendee selfies and photograph business cards to attach to your event leads. Photos are stored securely in your workspace and never shared without your permission.',
+            'SalesBuster needs camera access so you can take contact selfies and photograph business cards to attach to your contact categories. Photos are stored securely in your workspace and never shared without your permission.',
           buttonPositive: 'Allow',
           buttonNegative: 'Not Now',
         },
@@ -2324,7 +2232,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       selectedEvent?.description ||
       ''
     ).trim();
-    const fallbackGreeting = `Hi ${targetName}, it was a pleasure connecting with you at ${selectedEvent.name}! Here are our company and event details. Feel free to reach out anytime!`;
+    const fallbackGreeting = `Hi ${targetName}, it was a pleasure connecting with you! Here are our company details. Feel free to reach out anytime!`;
 
     const senderName =
       (user?.name && !user.name.startsWith('Guest_') ? user.name.trim() : '') ||
@@ -2592,12 +2500,12 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   // Create New Event
   const handleCreateEvent = async () => {
     if (!newEventName.trim()) {
-      showGuestAlert('Required', 'Please enter an event name.');
+      showGuestAlert('Required', 'Please enter a contact category name.');
       return;
     }
     setCreatingEvent(true);
     try {
-      const templateToSave = newEventDesc.trim() || `Hi {there name}! Great meeting you at {event name}\n\n${DEFAULT_CUSTOM_WHATSAPP_MESSAGE}`;
+      const templateToSave = newEventDesc.trim() || `Hi {there name}! Great meeting you.\n\n${DEFAULT_CUSTOM_WHATSAPP_MESSAGE}`;
       const res = await eventService.createEvent(token, {
         name: newEventName.trim(),
         venue: newEventLocation.trim() || 'Venue',
@@ -2616,14 +2524,14 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         setNewEventName('');
         setNewEventLocation('');
         setNewEventDesc('');
-        showGuestAlert('Success', `Event "${res.data.name}" created!`);
+        showGuestAlert('Success', `Contact category "${res.data.name}" created!`);
       }
     } catch (err) {
       showGuestAlert(
-        'Unable to Create Event',
+        'Unable to Create Contact Category',
         getFriendlyErrorMessage(
           err,
-          'Failed to create event. Please check the details and try again.',
+          'Failed to create contact category. Please check the details and try again.',
         ),
       );
     } finally {
@@ -2664,20 +2572,15 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         )}
 
         <KeyboardAwareScrollView
-          ref={scrollViewRef}
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          onMomentumScrollEnd={measureGuidanceTargets}
-          onScrollEndDrag={measureGuidanceTargets}
         >
           {/* 1. TOP ACTION NAVIGATION BAR */}
           <View style={styles.topBar}>
             {/* Our Products */}
             <TouchableOpacity
-              ref={guidanceProductsRef}
-              collapsable={false}
               style={styles.productsBtn}
               onPress={() => setIsProductsModalVisible(true)}
               activeOpacity={0.8}
@@ -2686,12 +2589,10 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               <Text style={styles.productsBtnText}>Our Products</Text>
             </TouchableOpacity>
 
-            {/* Right Action Group: Contacts, New Event, Info */}
+            {/* Right Action Group: Contacts and Info */}
             <View style={styles.topBarRight}>
               {/* Contacts Pill Button */}
               <TouchableOpacity
-                ref={guidanceContactsRef}
-                collapsable={false}
                 style={styles.pillActionBtn}
                 onPress={() => {
                   navigation?.navigate('EventContacts', {
@@ -2707,29 +2608,16 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 <Text style={styles.pillActionBtnText}>Contacts</Text>
               </TouchableOpacity>
 
-              {/* New Event Pill Button */}
-              <TouchableOpacity
-                style={styles.pillActionBtn}
-                onPress={() => {
-                  navigation?.navigate('NewEvent', {
-                    onEventCreated: created => {
-                      setEvents(prev => [created, ...prev]);
-                      setSelectedEvent(created);
-                    },
-                  });
-                }}
-                activeOpacity={0.8}
-              >
-                <PlusIcon size={14} color="#A8A8B2" />
-                <Text style={styles.pillActionBtnText}>New Event</Text>
-              </TouchableOpacity>
-
               {/* Info Guide Circle Button - Opens GuestTourModal */}
               <TouchableOpacity
                 style={styles.infoCircleBtn}
                 onPress={() => setIsTourModalVisible(true)}
                 activeOpacity={0.8}
               >
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.infoGlowHalo, infoGlowStyle]}
+                />
                 <ExactInfoIcon size={16} color="#0B0A1F" />
               </TouchableOpacity>
             </View>
@@ -2737,8 +2625,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
 
           {/* 2. EVENT TITLE & LOCATION HEADER */}
           <View
-            ref={guidanceEventRef}
-            collapsable={false}
             style={styles.eventHeader}
           >
             <View style={styles.eventTitleContainer}>
@@ -2754,51 +2640,56 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 activeOpacity={0.7}
               >
                 <Text style={styles.eventTitle} numberOfLines={1}>
-                  {selectedEvent?.name || 'Add an event to get started'}
+                  {selectedEvent?.name || 'Add a contact category'}
                 </Text>
                 <View style={styles.dropdownCircle}>
-                  <ChevronDownIcon size={12} color="#CBD5E1" />
+                  <ChevronDownIcon size={24} color="#CBD5E1" />
                 </View>
               </TouchableOpacity>
-              {/* {selectedEvent?._id && selectedEvent._id !== 'default' && (
-                <TouchableOpacity
-                  style={styles.eventEditBtn}
-                  onPress={() => handleEditEvent(selectedEvent)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  activeOpacity={0.7}
-                >
-                  <EditIcon size={14} color="#A78BFA" />
-                </TouchableOpacity>
-              )} */}
             </View>
 
-            <TouchableOpacity
-              style={styles.locationRow}
-              onPress={() => {
-                if (events.length === 0) {
-                  setIsNoEventModalVisible(true);
-                } else {
-                  setIsEventPickerVisible(true);
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <LocationPinIcon size={14} color="#8F90A6" />
-              <Text style={styles.locationText} numberOfLines={1}>
-                {selectedEvent?.venue ||
-                  selectedEvent?.location ||
-                  (events.length === 0
-                    ? 'Tap to pick or create an event'
-                    : 'Select an event')}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.locationRow}>
+              <View
+                style={styles.locationSelectArea}
+              >
+                {selectedEvent?.venue || selectedEvent?.location ? (
+                  <>
+                    <LocationPinIcon size={14} color="#8F90A6" />
+                    <Text style={styles.locationText} numberOfLines={1}>
+                      {selectedEvent.venue || selectedEvent.location}
+                    </Text>
+                  </>
+                ) : null}
+              </View>
+              {events.length > 0 ? (
+                <TouchableOpacity
+                  style={styles.addCategoryInlineBtn}
+                  onPress={() => {
+                    if (navigation) {
+                      navigation.navigate('NewEvent', {
+                        onEventCreated: created => {
+                          setEvents(prev => [created, ...prev]);
+                          setSelectedEvent(created);
+                        },
+                      });
+                    } else {
+                      setIsNewEventModalVisible(true);
+                    }
+                  }}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Create contact category"
+                >
+                  <PlusIcon size={13} color="#C4B5FD" />
+                  <Text style={styles.addCategoryInlineBtnText}>New category</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
 
           {/* 3. DUAL CAPTURE CARDS: CAPTURE VOICE & CAPTURE CARD */}
           <View style={styles.captureCardsRow}>
             <TouchableOpacity
-              ref={guidanceVoiceRef}
-              collapsable={false}
               style={styles.captureCardBig}
               onPress={handleOpenVoiceCapture}
               activeOpacity={0.8}
@@ -2809,8 +2700,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              ref={guidanceCameraRef}
-              collapsable={false}
               style={styles.captureCardBig}
               onPress={handleCaptureCard}
               activeOpacity={0.8}
@@ -2878,8 +2767,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
 
           {/* 4. FORM INPUT FIELDS */}
           <View
-            ref={guidanceFormRef}
-            collapsable={false}
             style={styles.formSection}
           >
             {/* Name */}
@@ -3020,8 +2907,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              ref={guidanceSaveRef}
-              collapsable={false}
               style={[
                 styles.bottomSaveBtn,
                 submitting && styles.bottomSaveBtnDisabled,
@@ -3100,9 +2985,9 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             {/* Header Row: Title, Subtitle, & Close Button */}
             <View style={styles.sheetHeaderRow}>
               <View style={styles.sheetHeaderTextContainer}>
-                <Text style={styles.sheetTitle}>All Events</Text>
+                <Text style={styles.sheetTitle}>Contact Categories</Text>
                 <Text style={styles.sheetSubtitle}>
-                  Pick the event you're capturing leads for.
+                  Choose the category for the contacts you’re capturing.
                 </Text>
               </View>
               <TouchableOpacity
@@ -3121,11 +3006,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                   <LocationPinIcon size={28} color="#A78BFA" />
                 </View>
                 <Text style={styles.emptyEventsTitle}>
-                  Add an event to get started
+                  Add a contact category to get started
                 </Text>
                 <Text style={styles.emptyEventsSubtitle}>
-                  Create your first event to start capturing attendee leads and
-                  business cards.
+                  Create your first contact category to start saving contacts
+                  and business cards.
                 </Text>
               </View>
             ) : (
@@ -3205,7 +3090,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               </ScrollView>
             )}
 
-            {/* Bottom Dashed Action: + New Event */}
+            {/* Bottom Dashed Action: + New Contact Category */}
             <TouchableOpacity
               style={styles.sheetNewEventBtn}
               onPress={() => {
@@ -3220,7 +3105,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               activeOpacity={0.8}
             >
               <PlusIcon size={16} color="#A78BFA" />
-              <Text style={styles.sheetNewEventBtnText}>New Event</Text>
+              <Text style={styles.sheetNewEventBtnText}>New Contact Category</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -3230,7 +3115,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       {/* MODAL 1B: NO EVENT POPUP */}
       {/* ========================================================================= */}
       <Modal
-        visible={Boolean(isNoEventModalVisible && !isActionableGuideVisible && !isTourModalVisible)}
+        visible={Boolean(isNoEventModalVisible && !isTourModalVisible)}
         transparent
         animationType="fade"
         onRequestClose={() => setIsNoEventModalVisible(false)}
@@ -3253,15 +3138,27 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             </TouchableOpacity>
 
             <View style={styles.noEventIconWrap}>
-              <LocationPinIcon size={32} color="#A78BFA" />
+              <View style={styles.noEventCategoryIcon}>
+                <View style={styles.noEventCategoryDot} />
+                <View style={styles.noEventCategoryLine} />
+                <View style={styles.noEventCategoryLineShort} />
+              </View>
             </View>
 
-            <Text style={styles.noEventTitle}>No Event Added</Text>
+            <Text style={styles.noEventTitle}>Create a Contact Category</Text>
             <Text style={styles.noEventDesc}>
-              No active events were found for your team. Create or add an event
-              to capture attendee leads, scan business cards, and send WhatsApp
-              messages.
+              Organize your contacts into categories so they’re easier to find and follow up with.
             </Text>
+
+            <View style={styles.noEventTip}>
+              <LightbulbIcon />
+              <View style={styles.noEventTipTextWrap}>
+                <Text style={styles.noEventTipTitle}>Quick tip</Text>
+                <Text style={styles.noEventTipText}>
+                  Name each category after the place where you met those contacts to find them easily later.
+                </Text>
+              </View>
+            </View>
 
             <TouchableOpacity
               style={styles.noEventCreateBtn}
@@ -3283,19 +3180,9 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             >
               <BrandGradientBackground id="no_event_btn_grad" borderRadius={14} />
               <PlusIcon size={16} color="#FFFFFF" />
-              <Text style={styles.noEventCreateBtnText}>Create New Event</Text>
+              <Text style={styles.noEventCreateBtnText}>Create Contact Category</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.noEventRefreshBtn}
-              onPress={() => {
-                loadEvents();
-              }}
-              activeOpacity={0.7}
-            >
-              <RefreshIcon size={14} color="#94A3B8" />
-              <Text style={styles.noEventRefreshBtnText}>Refresh Events</Text>
-            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -3312,7 +3199,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         <View style={styles.modalOverlayCentered}>
           <View style={styles.dialogCard}>
             <View style={styles.dialogHeader}>
-              <Text style={styles.dialogTitle}>Create New Event</Text>
+              <Text style={styles.dialogTitle}>Create Contact Category</Text>
               <TouchableOpacity
                 onPress={() => setIsNewEventModalVisible(false)}
               >
@@ -3321,7 +3208,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             </View>
 
             <View style={styles.dialogInputWrap}>
-              <Text style={styles.dialogLabel}>EVENT NAME *</Text>
+              <Text style={styles.dialogLabel}>CATEGORY NAME *</Text>
               <TextInput
                 style={styles.dialogInput}
                 placeholder="e.g. Furry Fest, Tech Expo 2026"
@@ -3332,7 +3219,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             </View>
 
             <View style={styles.dialogInputWrap}>
-              <Text style={styles.dialogLabel}>LOCATION / VENUE</Text>
+                <Text style={styles.dialogLabel}>LOCATION / VENUE</Text>
               <TextInput
                 style={styles.dialogInput}
                 placeholder="e.g. Jio World Garden, Mumbai"
@@ -3367,7 +3254,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <Text style={styles.dialogSubmitBtnText}>
-                  Create & Select Event
+                  Create & Select Category
                 </Text>
               )}
             </TouchableOpacity>
@@ -3722,7 +3609,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 <View>
                   <Text style={styles.confirmModalTitle}>Confirm & Send</Text>
                   <Text style={styles.confirmModalSubtitle}>
-                    WhatsApp message for {selectedEvent?.name}
+                    WhatsApp message for category: {selectedEvent?.name}
                   </Text>
                 </View>
               </View>
@@ -3763,7 +3650,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                   <Text style={styles.confirmSectionTitle}>
                     WhatsApp Message Template
                   </Text>
-                  <Text style={styles.confirmSectionBadge}>Event Template</Text>
+                  <Text style={styles.confirmSectionBadge}>Category Message</Text>
                 </View>
                 <TextInput
                   style={styles.confirmMessageInput}
@@ -3880,22 +3767,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         tourVideoConfig={tourVideoConfig}
       />
 
-      {/* 2. GUEST ACTIONABLE GUIDANCE (6-STEP ONBOARDING TOUR) */}
-      <GuestActionableGuidance
-        visible={isActionableGuideVisible}
-        onClose={() => setIsActionableGuideVisible(false)}
-        targets={guidanceTargets}
-        targetRefs={{
-          events: guidanceEventRef,
-          audio: guidanceVoiceRef,
-          image: guidanceCameraRef,
-          form: guidanceFormRef,
-          save: guidanceSaveRef,
-          contacts: guidanceContactsRef,
-        }}
-        onStepChange={handleGuidanceStepChange}
-        onRequestRemeasure={measureGuidanceTargets}
-      />
       {/* ========================================================================= */}
       {/* MODAL: VOICE CAPTURE POPUP (EXACT MATCH TO DESIGN - IMAGE 2) */}
       {/* ========================================================================= */}
@@ -4590,14 +4461,14 @@ const styles = StyleSheet.create({
   },
   eventTitle: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 16,
     fontFamily: Fonts.family.bold,
     letterSpacing: 0.3,
-    maxWidth: 240,
+    maxWidth: 280,
   },
   dropdownCircle: {
-    width: 22,
-    height: 22,
+    width: 32,
+    height: 32,
     borderRadius: 11,
     backgroundColor: '#232438',
     alignItems: 'center',
@@ -4608,11 +4479,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
+    paddingHorizontal: 8,
+    marginTop: 2,
+  },
+  locationSelectArea: {
+    flexShrink: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    marginRight: 8,
   },
   locationText: {
     color: '#8F90A6',
-    fontSize: 13,
+    fontSize: 10,
     fontFamily: Fonts.family.regular,
+    marginLeft: 4,
+    flexShrink: 1,
+  },
+  addCategoryInlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.12)',
+    borderColor: 'rgba(167, 139, 250, 0.38)',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+  },
+  addCategoryInlineBtnText: {
+    color: '#C4B5FD',
+    fontSize: 10,
+    fontFamily: Fonts.family.semiBold,
     marginLeft: 4,
   },
 
@@ -4912,10 +4812,10 @@ const styles = StyleSheet.create({
   },
   noEventModalCard: {
     backgroundColor: '#16172B',
-    borderRadius: 24,
-    padding: 24,
-    width: '90%',
-    maxWidth: 380,
+    borderRadius: 20,
+    padding: 18,
+    width: '86%',
+    maxWidth: 340,
     borderWidth: 1,
     borderColor: '#2E304F',
     alignItems: 'center',
@@ -4924,42 +4824,101 @@ const styles = StyleSheet.create({
   },
   noEventCloseBtn: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    top: 12,
+    right: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#20223D',
     alignItems: 'center',
     justifyContent: 'center',
   },
   noEventIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(168, 85, 247, 0.15)',
     borderWidth: 1,
     borderColor: 'rgba(168, 85, 247, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  noEventCategoryIcon: {
+    width: 25,
+    height: 22,
+    borderWidth: 1.8,
+    borderColor: '#A78BFA',
+    borderRadius: 6,
+    paddingLeft: 7,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  noEventCategoryDot: {
+    position: 'absolute',
+    left: 3,
+    top: 5,
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#A78BFA',
+  },
+  noEventCategoryLine: {
+    height: 2,
+    width: 11,
+    borderRadius: 1,
+    backgroundColor: '#A78BFA',
+    marginBottom: 3,
+  },
+  noEventCategoryLineShort: {
+    height: 2,
+    width: 8,
+    borderRadius: 1,
+    backgroundColor: '#A78BFA',
   },
   noEventTitle: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: Fonts.family.bold,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   noEventDesc: {
     color: '#94A3B8',
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: Fonts.family.regular,
     textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 20,
+    lineHeight: 17,
+    marginBottom: 12,
     paddingHorizontal: 6,
+  },
+  noEventTip: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(251, 191, 36, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.22)',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+  },
+  noEventTipTextWrap: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  noEventTipTitle: {
+    color: '#FDE68A',
+    fontSize: 11,
+    fontFamily: Fonts.family.semiBold,
+    marginBottom: 3,
+  },
+  noEventTipText: {
+    color: '#CBD5E1',
+    fontSize: 10,
+    fontFamily: Fonts.family.regular,
+    lineHeight: 14,
   },
   noEventCreateBtn: {
     flexDirection: 'row',
@@ -4967,11 +4926,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#4013C7',
     overflow: 'hidden',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 14,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 12,
     width: '100%',
-    marginBottom: 10,
+    marginBottom: 6,
     shadowColor: '#4013C7',
     shadowOpacity: 0.4,
     shadowRadius: 8,
@@ -4979,23 +4938,9 @@ const styles = StyleSheet.create({
   },
   noEventCreateBtnText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: Fonts.family.semiBold,
     marginLeft: 8,
-  },
-  noEventRefreshBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-  },
-  noEventRefreshBtnText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontFamily: Fonts.family.medium,
-    marginLeft: 6,
   },
   inputCard: {
     backgroundColor: '#1B1C2E',
@@ -6257,6 +6202,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 2,
+    zIndex: 1,
+  },
+  infoGlowHalo: {
+    position: 'absolute',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#A78BFA',
   },
   captureCardsRow: {
     flexDirection: 'row',

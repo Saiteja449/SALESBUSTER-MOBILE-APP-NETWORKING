@@ -157,35 +157,6 @@ export const eventService = {
   },
 
   /**
-   * Summarize speech transcript using Gemini AI
-   * Extracts: name, phone, companyName, summary, messageText
-   */
-  async summarizeTranscript(token, { transcript, eventName }) {
-    const activeToken = await resolveToken(token);
-    if (!activeToken) throw new Error('Authentication token required. Please log in.');
-    if (!transcript || !transcript.trim()) {
-      throw new Error('Transcript text is required');
-    }
-
-    const res = await axios.post(
-      API_ENDPOINTS.EVENTS.SUMMARIZE_TEXT,
-      {
-        transcript: transcript.trim(),
-        eventName: eventName || '',
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${activeToken}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 20000,
-      }
-    );
-
-    return res.data;
-  },
-
-  /**
    * Scan visiting / business card photo using Gemini AI
    * Extracts: name, phone, companyName, designation, email, website, address, summary
    */
@@ -287,21 +258,6 @@ export const eventService = {
   },
 
   /**
-   * Get event details by ID
-   */
-  async getEventById(token, eventId) {
-    const activeToken = await resolveToken(token);
-    if (!activeToken) throw new Error('Authentication token required. Please log in.');
-
-    const res = await axios.get(API_ENDPOINTS.EVENTS.BY_ID(eventId), {
-      headers: { Authorization: `Bearer ${activeToken}` },
-      timeout: 15000,
-    });
-
-    return res.data;
-  },
-
-  /**
    * Update an existing event
    */
   async updateEvent(token, eventId, payload) {
@@ -358,21 +314,6 @@ export const eventService = {
       console.warn('[eventService] updateEvent error:', err?.response?.data || err?.message);
       throw toFriendlyError(err, 'Unable to update event. Please check the details and try again.');
     }
-  },
-
-  /**
-   * Delete or archive an event
-   */
-  async deleteEvent(token, eventId) {
-    const activeToken = await resolveToken(token);
-    if (!activeToken) throw new Error('Authentication token required. Please log in.');
-
-    const res = await axios.delete(API_ENDPOINTS.EVENTS.BY_ID(eventId), {
-      headers: { Authorization: `Bearer ${activeToken}` },
-      timeout: 15000,
-    });
-
-    return res.data;
   },
 
   /**

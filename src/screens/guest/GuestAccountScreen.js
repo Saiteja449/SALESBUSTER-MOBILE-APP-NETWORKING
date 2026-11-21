@@ -34,6 +34,7 @@ import {
   XIcon,
 } from '../../icons/Icons';
 import { useAuth } from '../../context/AuthContext';
+import { openAppSettings } from '../../services/PermissionService';
 
 export const GuestAccountScreen = ({ navigation }) => {
   const { user, logout, completeProfile } = useAuth();
@@ -360,7 +361,7 @@ export const GuestAccountScreen = ({ navigation }) => {
           {/* Device Permissions */}
           <TouchableOpacity
             style={[styles.actionRow, styles.actionRowBorder]}
-            onPress={() => navigation?.navigate('PermissionSetup')}
+            onPress={openAppSettings}
             activeOpacity={0.7}
           >
             <View

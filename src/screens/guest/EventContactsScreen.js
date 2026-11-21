@@ -141,7 +141,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
 
     Alert.alert(
       'Remove Contact',
-      `Are you sure you want to remove "${contact.name || 'this contact'}" from this event?`,
+      `Are you sure you want to remove "${contact.name || 'this contact'}" from this contact category?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -222,7 +222,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
             const ev = eventsList.find((e) => String(e._id) === String(evId));
             return {
               ...c,
-              eventTitle: ev?.name || targetEvent?.name || 'Event',
+              eventTitle: ev?.name || targetEvent?.name || 'Contact Category',
             };
           });
           setContacts(list);
@@ -236,7 +236,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
         let combined = [];
         results.forEach((r, idx) => {
           if (r?.success && Array.isArray(r.data?.contacts)) {
-            const evName = eventsList[idx]?.name || 'Event';
+            const evName = eventsList[idx]?.name || 'Contact Category';
             combined = combined.concat(
               r.data.contacts.map((c) => ({ ...c, eventTitle: evName }))
             );
@@ -266,7 +266,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
           const matched = events.find((e) => String(e._id) === String(evId));
           const properTitle =
             matched?.name ||
-            (c.eventTitle && c.eventTitle !== 'Furry Fest' ? c.eventTitle : 'Event');
+            (c.eventTitle && c.eventTitle !== 'Furry Fest' ? c.eventTitle : 'Contact Category');
           if (c.eventTitle !== properTitle) {
             hasChanges = true;
             return { ...c, eventTitle: properTitle };
@@ -314,7 +314,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
       contactEvent?.name ||
       (contact.eventTitle && contact.eventTitle !== 'Furry Fest'
         ? contact.eventTitle
-        : 'the event');
+        : 'this contact category');
     const contactAttachments = Array.isArray(contact.attachments) ? contact.attachments : [];
     const eventAttachments = contactEvent?.attachments || [];
 
@@ -359,7 +359,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
       '';
 
     const template = (contactEvent?.whatsappTemplate || contactEvent?.description || '').trim();
-    const fallbackMsg = `Hi ${contact.name || 'there'}, thank you for connecting with us at ${resolvedEventName}!`;
+    const fallbackMsg = `Hi ${contact.name || 'there'}, thank you for connecting with us. We look forward to staying in touch!`;
     const resolvedTemplate = template
       ? populateWhatsAppMessage(template, {
           contactName: contact.name,
@@ -415,7 +415,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
         'Unable to Share',
         getFriendlyErrorMessage(
           err,
-          'Could not share event files to WhatsApp. Please verify your connection and try again.'
+          'Could not share contact category files to WhatsApp. Please verify your connection and try again.'
         )
       );
     }
@@ -428,12 +428,12 @@ export const EventContactsScreen = ({ navigation, route }) => {
     );
     const eventName =
       contactEvent?.name ||
-      (item.eventTitle && item.eventTitle !== 'Furry Fest' ? item.eventTitle : 'Event');
+      (item.eventTitle && item.eventTitle !== 'Furry Fest' ? item.eventTitle : 'Contact Category');
     const dateFormatted = formatContactDate(item.createdAt);
 
     return (
       <View style={styles.contactRow}>
-        {/* Left: Contact Name & Center: Event Name (Tap to View Details) */}
+        {/* Left: Contact Name & Category Name (Tap to View Details) */}
         <TouchableOpacity
           style={styles.infoTouchArea}
           onPress={() => setSelectedContact(item)}
@@ -556,8 +556,8 @@ export const EventContactsScreen = ({ navigation, route }) => {
           <Text style={styles.emptyTitle}>No Contacts Found</Text>
           <Text style={styles.emptySubtitle}>
             {searchQuery
-              ? `No attendees match "${searchQuery}".`
-              : 'Captured event contacts will appear here.'}
+              ? `No contacts match "${searchQuery}".`
+              : 'Contacts saved in this category will appear here.'}
           </Text>
         </View>
       ) : (
@@ -579,7 +579,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 1: FILTER BY EVENT */}
+      {/* MODAL 1: FILTER BY CONTACT CATEGORY */}
       {/* ========================================================================= */}
       <Modal
         visible={isFilterModalVisible}
@@ -594,7 +594,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
         >
           <View style={styles.sheetContainer}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Filter by Event</Text>
+            <Text style={styles.sheetTitle}>Filter by Contact Category</Text>
 
             <TouchableOpacity
               style={[
@@ -612,7 +612,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
                   (!selectedEventId || selectedEventId === 'all') && styles.eventFilterTextSelected,
                 ]}
               >
-                All Events
+                All Categories
               </Text>
               {(!selectedEventId || selectedEventId === 'all') && (
                 <CheckIcon size={18} color="#8B5CF6" />
@@ -666,7 +666,7 @@ export const EventContactsScreen = ({ navigation, route }) => {
                   {events.find((e) => String(e._id) === String(selectedContact?.eventId || selectedEventId))?.name ||
                     (selectedContact?.eventTitle && selectedContact.eventTitle !== 'Furry Fest'
                       ? selectedContact.eventTitle
-                      : 'Event Attendee')}
+                      : 'Contact Category')}
                 </Text>
               </View>
 
@@ -777,12 +777,12 @@ export const EventContactsScreen = ({ navigation, route }) => {
 
             <View style={styles.detailHeader}>
               <View>
-                <Text style={styles.detailName}>Edit Event Contact</Text>
+                  <Text style={styles.detailName}>Edit Contact</Text>
                 <Text style={styles.detailEventTag}>
                   {events.find((e) => String(e._id) === String(editingContact?.eventId || selectedEventId))?.name ||
                     (editingContact?.eventTitle && editingContact.eventTitle !== 'Furry Fest'
                       ? editingContact.eventTitle
-                      : 'Event Attendee')}
+                      : 'Contact Category')}
                 </Text>
               </View>
               <TouchableOpacity onPress={() => setIsEditModalVisible(false)}>

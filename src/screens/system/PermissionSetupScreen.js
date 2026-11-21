@@ -117,6 +117,7 @@ const PermissionSetupScreen = ({
   onComplete,
   onClose,
   isModal = false,
+  beforeLogin = false,
   navigation,
 }) => {
   const { user } = useAuth();
@@ -246,6 +247,14 @@ const PermissionSetupScreen = ({
           onClose();
         } else if (navigation?.canGoBack?.()) {
           navigation.goBack();
+        }
+      } else if (beforeLogin) {
+        if (navigation?.reset) {
+          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+        } else if (navigation?.replace) {
+          navigation.replace('Login');
+        } else {
+          navigation?.navigate?.('Login');
         }
       } else {
         const needsProfile =

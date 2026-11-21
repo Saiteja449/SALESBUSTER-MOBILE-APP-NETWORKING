@@ -8,6 +8,7 @@ import {
   Platform,
   StatusBar,
   Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -38,7 +39,7 @@ import { getFullMediaUrl } from '../../utils/constants';
 
 const LAST_EVENT_STORAGE_KEY = 'salesbuster_last_selected_event_id';
 const FIXED_WHATSAPP_TEMPLATE =
-  'Hi {there name}! Great meeting you at {event name}';
+  'Hi {there name}! Great meeting you.';
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB limit (expanded from 2 * 1024 * 1024)
 
 const formatEventDate = d => {
@@ -122,6 +123,61 @@ export const NewEventScreen = ({ navigation, route }) => {
   const [eventFile, setEventFile] = useState(null);
   const eventImage = eventFile;
   const setEventImage = setEventFile;
+  const [previousEventFiles, setPreviousEventFiles] = useState([]);
+  const [isPreviousFilesModalVisible, setIsPreviousFilesModalVisible] = useState(false);
+  const [isLoadingPreviousFiles, setIsLoadingPreviousFiles] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadPreviousEventFiles = async () => {
+      if (!token) return;
+      setIsLoadingPreviousFiles(true);
+      try {
+        const response = await eventService.getEvents(token, 'all');
+        const events = Array.isArray(response?.data) ? response.data : [];
+        const files = events
+          .filter(event => !initialEvent?._id || event._id !== initialEvent._id)
+          .flatMap(event =>
+            (Array.isArray(event.attachments) ? event.attachments : []).map(att => {
+              const rawUrl = att?.url || att?.uri || '';
+              if (!rawUrl) return null;
+              const uri =
+                rawUrl.startsWith('http') ||
+                rawUrl.startsWith('file:') ||
+                rawUrl.startsWith('content:')
+                  ? rawUrl
+                  : getFullMediaUrl(rawUrl);
+              const type = (att.type || '').toLowerCase();
+              const name = (att.name || rawUrl).toLowerCase();
+              const isImage =
+                att.isImage === true ||
+                type.startsWith('image/') ||
+                /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(name);
+              return {
+                uri,
+                url: att.url || rawUrl,
+                name: att.name || 'Category file',
+                size: att.size || 0,
+                type: att.type || (isImage ? 'image/jpeg' : 'application/octet-stream'),
+                isExisting: true,
+                isImage,
+                sourceEventName: event.name || 'Previous category',
+              };
+            }),
+          )
+          .filter(Boolean);
+        if (isMounted) setPreviousEventFiles(files);
+      } catch (error) {
+        console.warn('Failed to load files from previous categories:', error);
+      } finally {
+        if (isMounted) setIsLoadingPreviousFiles(false);
+      }
+    };
+    loadPreviousEventFiles();
+    return () => {
+      isMounted = false;
+    };
+  }, [token, initialEvent?._id]);
 
   useEffect(() => {
     if (initialEvent) {
@@ -188,7 +244,7 @@ export const NewEventScreen = ({ navigation, route }) => {
   // Save Event
   const handleSaveEvent = async () => {
     if (!eventName.trim()) {
-      showGuestAlert('Required Field', 'Please enter Event Name.');
+      showGuestAlert('Required Field', 'Please enter a contact category name.');
       return;
     }
     if (!venue.trim()) {
@@ -258,7 +314,7 @@ export const NewEventScreen = ({ navigation, route }) => {
 
           showGuestAlert(
             'Success 🎉',
-            `Event "${updated.name}" updated successfully!`,
+            `Contact category "${updated.name}" updated successfully!`,
             [
               {
                 text: 'OK',
@@ -267,7 +323,7 @@ export const NewEventScreen = ({ navigation, route }) => {
             ],
           );
         } else {
-          throw new Error(res.message || 'Failed to update event');
+          throw new Error(res.message || 'Failed to update contact category');
         }
       } else {
         const res = await eventService.createEvent(token, payload);
@@ -286,7 +342,7 @@ export const NewEventScreen = ({ navigation, route }) => {
 
           showGuestAlert(
             'Success 🎉',
-            `Event "${created.name}" created successfully!`,
+            `Contact category "${created.name}" created successfully!`,
             [
               {
                 text: 'OK',
@@ -295,22 +351,22 @@ export const NewEventScreen = ({ navigation, route }) => {
             ],
           );
         } else {
-          throw new Error(res.message || 'Failed to create event');
+          throw new Error(res.message || 'Failed to create contact category');
         }
       }
     } catch (err) {
       console.error(
-        isEdit ? 'Update event error:' : 'Create event error:',
+        isEdit ? 'Update category error:' : 'Create category error:',
         err,
       );
       const friendlyMessage = getFriendlyErrorMessage(
         err,
         isEdit
-          ? 'Unable to update event. Please check the event details and try again.'
-          : 'Unable to save event. Please check the event details and try again.',
+          ? 'Unable to update category. Please check the details and try again.'
+          : 'Unable to save category. Please check the details and try again.',
       );
       showGuestAlert(
-        isEdit ? 'Unable to Update Event' : 'Unable to Save Event',
+        isEdit ? 'Unable to Update Category' : 'Unable to Save Category',
         friendlyMessage,
       );
     } finally {
@@ -335,7 +391,7 @@ export const NewEventScreen = ({ navigation, route }) => {
           <BackIcon size={18} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isEdit ? 'Edit Event' : 'Event Details'}
+          {isEdit ? 'Edit Contact Category' : 'Create Contact Category'}
         </Text>
         <View style={styles.headerRightSpacer} />
       </View>
@@ -346,11 +402,11 @@ export const NewEventScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* 1. EVENT NAME INPUT CARD */}
+        {/* 1. CONTACT CATEGORY NAME INPUT CARD */}
         <View style={styles.inputCard}>
           {!eventName ? (
             <View style={styles.placeholderRow} pointerEvents="none">
-              <Text style={styles.placeholderText}>Event Name</Text>
+              <Text style={styles.placeholderText}>Contact Category Name</Text>
               <Text style={styles.requiredAsterisk}>*</Text>
             </View>
           ) : null}
@@ -413,7 +469,7 @@ export const NewEventScreen = ({ navigation, route }) => {
           {/* Box 1: Fixed Non-Editable Template */}
           <View style={[styles.inputCard, styles.fixedTemplateCard]}>
             <Text style={styles.fixedTemplateText}>
-              Hi {'{there name}'}! Great meeting you at {'{event name}'}
+              Hi {'{there name}'}! Great meeting you.
             </Text>
           </View>
 
@@ -435,10 +491,10 @@ export const NewEventScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* 5. EVENT FILE SECTION (OPTIONAL) */}
+        {/* 5. CATEGORY IMAGE OR DOCUMENT (OPTIONAL) */}
         <View style={styles.sectionWrap}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeaderTitle}>Event File</Text>
+            <Text style={styles.sectionHeaderTitle}>Image or Document</Text>
             <Text style={styles.optionalBadgeText}>(Optional)</Text>
           </View>
 
@@ -486,15 +542,25 @@ export const NewEventScreen = ({ navigation, route }) => {
               <View style={styles.uploadIconCircle}>
                 <PaperclipIcon size={22} color="#8B5CF6" />
               </View>
-              <Text style={styles.uploadCardSingleTitle}>Add Event File</Text>
+              <Text style={styles.uploadCardSingleTitle}>Add Image or Document</Text>
               <Text style={styles.uploadHintText}>
                 Optional: 1 file (PDF, Document, Image under 25 MB)
               </Text>
             </TouchableOpacity>
           )}
+          <TouchableOpacity
+            style={styles.previousFilesButton}
+            onPress={() => setIsPreviousFilesModalVisible(true)}
+            activeOpacity={0.75}
+          >
+            <PaperclipIcon size={16} color="#A78BFA" />
+              <Text style={styles.previousFilesButtonText}>
+              Choose from previous categories
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* 6. SAVE EVENT BUTTON */}
+        {/* 6. SAVE CONTACT CATEGORY BUTTON */}
         <TouchableOpacity
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSaveEvent}
@@ -506,11 +572,70 @@ export const NewEventScreen = ({ navigation, route }) => {
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
             <Text style={styles.saveButtonText}>
-              {isEdit ? 'Update Event' : 'Save Event'}
+              {isEdit ? 'Update Category' : 'Save Category'}
             </Text>
           )}
         </TouchableOpacity>
       </KeyboardAwareScrollView>
+
+      <Modal
+        visible={isPreviousFilesModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsPreviousFilesModalVisible(false)}
+      >
+        <View style={styles.previousFilesOverlay}>
+          <View style={styles.previousFilesCard}>
+            <View style={styles.previousFilesHeader}>
+              <Text style={styles.previousFilesTitle}>Files from Previous Categories</Text>
+              <TouchableOpacity
+                onPress={() => setIsPreviousFilesModalVisible(false)}
+                style={styles.previousFilesClose}
+                activeOpacity={0.7}
+              >
+                <XIcon size={18} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+            {isLoadingPreviousFiles ? (
+              <ActivityIndicator color="#A78BFA" style={styles.previousFilesLoader} />
+            ) : previousEventFiles.length ? (
+              <ScrollView style={styles.previousFilesList}>
+                {previousEventFiles.map((file, index) => (
+                  <TouchableOpacity
+                    key={`${file.url}-${index}`}
+                    style={styles.previousFileRow}
+                    onPress={() => {
+                      setEventFile(file);
+                      setIsPreviousFilesModalVisible(false);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    {file.isImage && file.uri ? (
+                      <Image source={{ uri: file.uri }} style={styles.previousFileThumb} />
+                    ) : (
+                      <View style={styles.previousFileDocIcon}>
+                        <PaperclipIcon size={17} color="#A78BFA" />
+                      </View>
+                    )}
+                    <View style={styles.previousFileInfo}>
+                      <Text style={styles.previousFileName} numberOfLines={1}>
+                        {file.name}
+                      </Text>
+                      <Text style={styles.previousFileSource} numberOfLines={1}>
+                        {file.sourceEventName}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={styles.previousFilesEmpty}>
+                No images or documents are saved on previous categories yet.
+              </Text>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Date Picker Modal */}
       <DatePicker
@@ -784,6 +909,107 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     fontFamily: Fonts.family.regular,
+  },
+  previousFilesButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+  },
+  previousFilesButtonText: {
+    color: '#C4B5FD',
+    fontSize: 13,
+    fontFamily: Fonts.family.medium,
+    marginLeft: 8,
+  },
+  previousFilesOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 22,
+  },
+  previousFilesCard: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '72%',
+    backgroundColor: '#16172B',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#2E304F',
+    padding: 18,
+  },
+  previousFilesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  previousFilesTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontFamily: Fonts.family.bold,
+  },
+  previousFilesClose: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#20223D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previousFilesList: {
+    flexGrow: 0,
+  },
+  previousFilesLoader: {
+    paddingVertical: 28,
+  },
+  previousFilesEmpty: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontFamily: Fonts.family.regular,
+    textAlign: 'center',
+    paddingVertical: 22,
+    lineHeight: 19,
+  },
+  previousFileRow: {
+    minHeight: 62,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E1F35',
+    borderRadius: 12,
+    padding: 9,
+    marginBottom: 8,
+  },
+  previousFileThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#0B0C16',
+  },
+  previousFileDocIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: 'rgba(167, 139, 250, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previousFileInfo: {
+    flex: 1,
+    marginLeft: 11,
+  },
+  previousFileName: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: Fonts.family.semiBold,
+  },
+  previousFileSource: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontFamily: Fonts.family.regular,
+    marginTop: 3,
   },
 
   // SAVE BUTTON

@@ -98,7 +98,7 @@ export const SalesBusterIcon = ({ size = 48, borderRadius = 12, style }) => {
       <Rect
         width="512"
         height="512"
-        rx={borderRadius ? (512 / size) * borderRadius : 128}
+        rx={(512 / size) * borderRadius}
         fill="url(#sb_icon_linear)"
       />
       <G clipPath="url(#sb_icon_clip)">

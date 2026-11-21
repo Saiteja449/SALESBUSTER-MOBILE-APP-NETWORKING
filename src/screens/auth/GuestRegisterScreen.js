@@ -316,14 +316,14 @@ export const GuestRegisterScreen = ({ navigation }) => {
 
           <View style={styles.workspaceBadge}>
             <SparklesIcon size={13} color={PALETTE.orangeSoft} />
-            <Text style={styles.workspaceBadgeText}>Free Event Capture Workspace</Text>
+            <Text style={styles.workspaceBadgeText}>Free Contact Capture Workspace</Text>
           </View>
 
           <Text style={[styles.title, isCompact && styles.titleCompact]}>
             Create Your Account
           </Text>
           <Text style={styles.subtitle}>
-            Get started with SalesBuster. Capture contacts and manage your event leads effortlessly.
+            Get started with SalesBuster. Capture contacts and organize them into categories effortlessly.
           </Text>
         </Animated.View>
 

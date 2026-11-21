@@ -213,9 +213,9 @@ const TOUR_STEPS = [
     badgeText: 'Step 1: Prepare Your Stage',
     heroType: 'image',
     heroImage: STEP_1_HERO,
-    title: 'Create Your Event First',
+    title: 'Create a Contact Category First',
     subtitle:
-      'Group your leads by expo, conference, or roadshow. Pre-load your marketing collateral and welcome messages.',
+      'Group your contacts by category. Add helpful brochures and a welcome message for each group.',
     cardBorder: 'rgba(255, 255, 255, 0.08)',
     features: [
       {
@@ -231,12 +231,12 @@ const TOUR_STEPS = [
       {
         icon: 'chat',
         title: 'Pre-defined WhatsApp Greeting',
-        desc: 'Event welcome message',
+        desc: 'Contact category welcome message',
       },
     ],
     tipIcon: 'lightbulb',
     tipPrefix: 'Pro-Tip: ',
-    tipText: 'Select an active event\nfrom the top bar anytime',
+    tipText: 'Select a contact category\nfrom the top bar anytime',
   },
   {
     stepIndex: 1,
@@ -296,7 +296,7 @@ const TOUR_STEPS = [
     ],
     tipIcon: 'shieldCheck',
     tipPrefix: '',
-    tipText: 'Stored securely in your event lead list and synced to the cloud.',
+    tipText: 'Stored securely in your contact list and synced to the cloud.',
   },
   {
     stepIndex: 3,
@@ -579,8 +579,7 @@ const GuestTourModal = ({ visible, onClose, onComplete, tourVideoConfig }) => {
       <View style={[styles.heroWrapper, styles.heroWaCard]}>
         <View style={styles.waBubble}>
           <Text style={styles.waBubbleText}>
-            Hi Rahul! Great meeting you at TechSummit 2026. Here is our brochure
-            PDF.
+            Hi Rahul! Great meeting you. Here is our brochure PDF.
           </Text>
           <View style={styles.waPdfAttachment}>
             <DocumentIcon size={14} color="#22C55E" />

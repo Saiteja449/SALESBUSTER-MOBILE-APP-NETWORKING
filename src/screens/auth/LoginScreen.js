@@ -17,27 +17,25 @@ import KeyboardAwareScrollView from '../../components/common/KeyboardAwareScroll
 import { useAuth } from '../../context/AuthContext';
 import {
   AlertCircleIcon,
-  BackIcon,
   CheckIcon,
   ChevronDownIcon,
   EditIcon,
   PhoneIcon,
 } from '../../icons/Icons';
 import { Fonts } from '../../styles/Fonts';
-import { SalesBusterLogo } from '../../components/common/BrandLogo';
+import { SalesBusterIcon } from '../../components/common/BrandLogo';
 import BrandGradientBackground from '../../components/common/BrandGradientBackground';
+import AuthFlowProgress from '../../components/auth/AuthFlowProgress';
+import SpeechRegistrationScreen from './SpeechRegistrationScreen';
 
 const PALETTE = {
   bgDeep: '#0A0D14',
   bgStatusBar: '#0A0D14',
-  cardBg: '#111827',
-  cardBorder: 'rgba(255, 255, 255, 0.08)',
   inputBg: '#141A29',
   inputBgFocused: '#161F36',
   inputBorder: 'rgba(255, 255, 255, 0.08)',
   inputBorderFocused: '#8B5CF6',
   inputBorderError: '#EF4444',
-  primaryAccent: '#7C3AED',
   purpleBright: '#A78BFA',
   purpleSoft: '#C4B5FD',
   textPrimary: '#FFFFFF',
@@ -52,13 +50,13 @@ const PALETTE = {
   emeraldBorder: 'rgba(16, 185, 129, 0.3)',
 };
 
-export default function LoginScreen({ navigation }) {
-  const { sendOtp, verifyOtp } = useAuth();
+export default function LoginScreen() {
+  const { sendOtp, verifyOtp, logout, user, isAuthenticated } = useAuth();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const isCompact = height < 700 || width < 360;
 
-  // Step 1: 'phone' | Step 2: 'otp'
+  // Onboarding steps: 'phone' | 'otp' | 'profile'
   const [step, setStep] = useState('phone');
   const [phone, setPhone] = useState('');
   const [isPhoneFocused, setIsPhoneFocused] = useState(false);
@@ -251,6 +249,9 @@ export default function LoginScreen({ navigation }) {
       const result = await verifyOtp(phone, fullOtp);
       if (!result.success) {
         setServerError(result.message || 'Incorrect verification code.');
+      } else if (!result.isProfileComplete) {
+        setStep('profile');
+        setServerError('');
       }
     } catch (_err) {
       setServerError('Network error verifying code.');
@@ -259,13 +260,26 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
+  const activeStep = step === 'phone' ? 1 : step === 'otp' ? 2 : 3;
   const handleBackToPhone = () => {
+    if (user && !isAuthenticated && user.isProfileComplete !== true) {
+      logout().catch(() => {});
+    }
     setStep('phone');
     setOtp(['', '', '', '']);
     setOtpError('');
     setServerError('');
     setFocusedOtpIndex(null);
   };
+
+  if (step === 'profile') {
+    return (
+      <SpeechRegistrationScreen
+        embeddedFlow
+        onBack={handleBackToPhone}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -275,34 +289,28 @@ export default function LoginScreen({ navigation }) {
         translucent={false}
       />
 
+      <View
+        style={[
+          styles.fixedProgressWrapper,
+          { paddingTop: Math.max(insets.top + (isCompact ? 8 : 12), 12) },
+        ]}
+      >
+        <AuthFlowProgress
+          activeStep={activeStep}
+          onBack={step === 'otp' ? handleBackToPhone : undefined}
+        />
+      </View>
+
       <KeyboardAwareScrollView
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: Math.max(insets.top + (isCompact ? 12 : 20), 16),
             paddingBottom: Math.max(insets.bottom + 20, 28),
           },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Navigation Bar */}
-        <View style={styles.topBar}>
-          {step === 'otp' ? (
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={handleBackToPhone}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              activeOpacity={0.7}
-              accessibilityLabel="Back to mobile number entry"
-            >
-              <BackIcon size={20} color={PALETTE.textSecondary} />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.topBarPlaceholder} />
-          )}
-        </View>
-
         {/* Animated Brand Header */}
         <Animated.View
           style={[
@@ -313,10 +321,9 @@ export default function LoginScreen({ navigation }) {
             },
           ]}
         >
-          <View style={styles.logoRow}>
-            <SalesBusterLogo width={isCompact ? 140 : 160} />
+          <View style={styles.brandMark} accessible accessibilityRole="image" accessibilityLabel="SalesBuster logo">
+            <SalesBusterIcon size={60} borderRadius={12} />
           </View>
-
           <Text style={styles.title}>
             {step === 'phone' ? 'Welcome to SalesBuster' : 'Verify your number'}
           </Text>
@@ -559,61 +566,53 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    paddingTop: 8,
     paddingHorizontal: 20,
     justifyContent: 'center',
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 480,
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    minHeight: 36,
-    marginBottom: 8,
-  },
-  topBarPlaceholder: {
-    height: 36,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  fixedProgressWrapper: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    backgroundColor: PALETTE.bgDeep,
+    zIndex: 2,
   },
   headerSection: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 22,
   },
-  logoRow: {
+  brandMark: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   title: {
     color: PALETTE.textPrimary,
-    fontSize: 24,
+    fontSize: 26,
     fontFamily: Fonts.family.bold,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: -0.3,
+    marginBottom: 7,
+    letterSpacing: -0.55,
   },
   subtitle: {
     color: PALETTE.textSecondary,
-    fontSize: 14,
+    fontSize: 13.5,
     fontFamily: Fonts.family.regular,
     textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 16,
+    lineHeight: 19,
+    paddingHorizontal: 12,
   },
   card: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 20,
+    backgroundColor: '#101827',
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: PALETTE.cardBorder,
-    padding: 20,
+    borderColor: 'rgba(148, 163, 184, 0.14)',
+    padding: 18,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
@@ -623,12 +622,12 @@ const styles = StyleSheet.create({
   phoneInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.inputBg,
-    borderRadius: 14,
+    backgroundColor: '#0C1422',
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: PALETTE.inputBorder,
     paddingHorizontal: 14,
-    height: 56,
+    height: 58,
   },
   phoneInputContainerFocused: {
     borderColor: PALETTE.inputBorderFocused,
@@ -701,11 +700,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(139, 92, 246, 0.08)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(139, 92, 246, 0.18)',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 18,
   },
@@ -738,19 +737,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 6,
+    gap: 12,
+    marginBottom: 8,
   },
   otpBox: {
     flex: 1,
-    maxWidth: 64,
-    height: 60,
-    backgroundColor: PALETTE.inputBg,
-    borderRadius: 14,
+    maxWidth: 68,
+    height: 64,
+    backgroundColor: '#0C1422',
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: PALETTE.inputBorder,
     color: PALETTE.textPrimary,
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: Fonts.family.bold,
     textAlign: 'center',
   },
@@ -800,16 +799,16 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: '#5013C7',
-    borderRadius: 16,
-    height: 52,
+    borderRadius: 15,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 18,
     overflow: 'hidden',
     shadowColor: '#5013C7',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
     elevation: 6,
   },
   buttonDisabled: {

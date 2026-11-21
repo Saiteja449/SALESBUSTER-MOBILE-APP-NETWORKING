@@ -254,33 +254,8 @@ class WhatsAppSocketService {
     });
   }
 
-  subscribe(eventName, callback) {
-    if (typeof callback !== 'function') return () => {};
-
-    if (!this.listeners.has(eventName)) {
-      this.listeners.set(eventName, new Set());
-    }
-    const set = this.listeners.get(eventName);
-    set.add(callback);
-
-    return () => {
-      set.delete(callback);
-      if (set.size === 0) {
-        this.listeners.delete(eventName);
-      }
-    };
-  }
-
   getSocket() {
     return this.socket;
-  }
-
-  emit(eventName, ...args) {
-    if (this.socket && this.socket.connected) {
-      this.socket.emit(eventName, ...args);
-      return true;
-    }
-    return false;
   }
 
   disconnect() {

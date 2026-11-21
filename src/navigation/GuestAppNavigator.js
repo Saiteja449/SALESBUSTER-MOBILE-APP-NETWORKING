@@ -19,6 +19,7 @@ import { getPermissionSetupKey } from '../config/rolePermissions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Stack = createNativeStackNavigator();
+const ENABLE_ONBOARDING_FLOW = false;
 
 const GuestAppNavigator = () => {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
@@ -35,19 +36,14 @@ const GuestAppNavigator = () => {
   }, []);
 
   React.useEffect(() => {
-    if (!isAuthenticated || !user) {
-      setHasCompletedPermissionSetup(true);
-      return;
-    }
-    setHasCompletedPermissionSetup(null);
-    AsyncStorage.getItem(getPermissionSetupKey(user))
+    AsyncStorage.getItem(getPermissionSetupKey(null))
       .then((val) => {
         setHasCompletedPermissionSetup(val === 'true');
       })
       .catch(() => {
-        setHasCompletedPermissionSetup(true);
+        setHasCompletedPermissionSetup(false);
       });
-  }, [isAuthenticated, user?.id, user?._id, user?.email, user?.accountType]);
+  }, []);
 
   React.useEffect(() => {
     if (isAuthenticated && !isLoading && !isGuest) {
@@ -58,8 +54,8 @@ const GuestAppNavigator = () => {
   if (
     !splashDone ||
     isLoading ||
-    hasSeenOnboarding === null ||
-    (isAuthenticated && hasCompletedPermissionSetup === null)
+    (ENABLE_ONBOARDING_FLOW && hasSeenOnboarding === null) ||
+    hasCompletedPermissionSetup === null
   ) {
     return <SplashScreen onAnimationComplete={() => setSplashDone(true)} />;
   }
@@ -74,45 +70,24 @@ const GuestAppNavigator = () => {
     <View style={styles.root}>
       <NavigationContainer>
         <Stack.Navigator
+          key={isAuthenticated && isGuest ? 'guest-app' : 'auth-flow'}
           initialRouteName={
             isAuthenticated && isGuest
-              ? hasCompletedPermissionSetup
-                ? needsSpeechRegistration
-                  ? 'SpeechRegistration'
-                  : 'Main'
-                : 'PermissionSetupInitial'
-              : hasSeenOnboarding
+              ? needsSpeechRegistration
+                ? 'SpeechRegistration'
+                : 'Main'
+              : ENABLE_ONBOARDING_FLOW && !hasSeenOnboarding
+              ? 'Onboarding'
+              : hasCompletedPermissionSetup
               ? 'Login'
-              : 'Onboarding'
+              : 'PermissionSetupBeforeLogin'
           }
           screenOptions={{ headerShown: false }}
         >
           {isAuthenticated && isGuest ? (
             <>
-              {!hasCompletedPermissionSetup && (
-                <Stack.Screen name="PermissionSetupInitial">
-                  {(props) => (
-                    <PermissionSetupScreen
-                      {...props}
-                      onComplete={() => {
-                        setHasCompletedPermissionSetup(true);
-                      }}
-                    />
-                  )}
-                </Stack.Screen>
-              )}
               <Stack.Screen name="SpeechRegistration" component={SpeechRegistrationScreen} />
               <Stack.Screen name="Main" component={GuestTabNavigator} />
-              <Stack.Screen name="PermissionSetup">
-                {(props) => (
-                  <PermissionSetupScreen
-                    {...props}
-                    isModal={true}
-                    onClose={() => props.navigation.goBack()}
-                    onComplete={() => props.navigation.goBack()}
-                  />
-                )}
-              </Stack.Screen>
               <Stack.Screen name="GuestHome" component={GuestHomeScreen} />
               <Stack.Screen name="NewEvent" component={NewEventScreen} />
               <Stack.Screen name="EditEvent" component={NewEventScreen} />
@@ -122,36 +97,41 @@ const GuestAppNavigator = () => {
             </>
           ) : (
             <>
-              <Stack.Screen name="Onboarding">
+              <Stack.Screen name="PermissionSetupBeforeLogin">
+                {(props) => (
+                  <PermissionSetupScreen
+                    {...props}
+                    beforeLogin
+                    onComplete={() => setHasCompletedPermissionSetup(true)}
+                  />
+                )}
+              </Stack.Screen>
+              {ENABLE_ONBOARDING_FLOW ? <Stack.Screen name="Onboarding">
                 {(props) => (
                   <OnboardingScreen
                     {...props}
                     onComplete={() => {
                       setHasSeenOnboarding(true);
-                      if (props.navigation.canGoBack()) {
-                        props.navigation.goBack();
-                      } else {
-                        props.navigation.replace('Login');
-                      }
+                      props.navigation.replace(
+                        hasCompletedPermissionSetup ? 'Login' : 'PermissionSetupBeforeLogin',
+                      );
                     }}
                   />
                 )}
-              </Stack.Screen>
-              <Stack.Screen name="OnboardingScreen">
+              </Stack.Screen> : null}
+              {ENABLE_ONBOARDING_FLOW ? <Stack.Screen name="OnboardingScreen">
                 {(props) => (
                   <OnboardingScreen
                     {...props}
                     onComplete={() => {
                       setHasSeenOnboarding(true);
-                      if (props.navigation.canGoBack()) {
-                        props.navigation.goBack();
-                      } else {
-                        props.navigation.replace('Login');
-                      }
+                      props.navigation.replace(
+                        hasCompletedPermissionSetup ? 'Login' : 'PermissionSetupBeforeLogin',
+                      );
                     }}
                   />
                 )}
-              </Stack.Screen>
+              </Stack.Screen> : null}
               <Stack.Screen name="Login" component={LoginScreen} />
               <Stack.Screen name="GuestRegister" component={GuestRegisterScreen} />
             </>

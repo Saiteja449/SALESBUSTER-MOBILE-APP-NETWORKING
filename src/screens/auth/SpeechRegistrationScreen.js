@@ -22,7 +22,8 @@ import Text from '../../components/common/AppText';
 import TextInput from '../../components/common/AppTextInput';
 import KeyboardAwareScrollView from '../../components/common/KeyboardAwareScrollView';
 import BrandGradientBackground from '../../components/common/BrandGradientBackground';
-import { SalesBusterLogo } from '../../components/common/BrandLogo';
+import AuthFlowProgress from '../../components/auth/AuthFlowProgress';
+import { SalesBusterIcon } from '../../components/common/BrandLogo';
 import { Fonts } from '../../styles/Fonts';
 import { useAuth } from '../../context/AuthContext';
 import { useGeminiLiveVoice } from '../../hooks/useGeminiLiveVoice';
@@ -111,6 +112,8 @@ export default function SpeechRegistrationScreen({
   navigation,
   route,
   onComplete,
+  onBack,
+  embeddedFlow = false,
 }) {
   const { user, completeProfile } = useAuth();
   const insets = useSafeAreaInsets();
@@ -153,6 +156,7 @@ export default function SpeechRegistrationScreen({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isProfileFormVisible, setIsProfileFormVisible] = useState(false);
 
   const countdownTimerRef = useRef(null);
   const voiceTimerRef = useRef(null);
@@ -410,7 +414,7 @@ export default function SpeechRegistrationScreen({
     setIsListening(false);
     setIsVoiceAnalysing(false);
     setAnalysisStep(1);
-    setVoiceCountdown(5);
+    setVoiceCountdown(3);
     orangeGlowAnim.setValue(0);
     setErrorMessage('');
 
@@ -419,7 +423,7 @@ export default function SpeechRegistrationScreen({
       countdownTimerRef.current = null;
     }
 
-    let count = 5;
+    let count = 3;
     countdownTimerRef.current = setInterval(() => {
       count -= 1;
       if (count > 0) {
@@ -554,6 +558,7 @@ export default function SpeechRegistrationScreen({
     await new Promise(r => setTimeout(r, 650));
 
     // Automatically close the popup after data has been successfully fetched and populated
+    setIsProfileFormVisible(true);
     setIsVoiceModalVisible(false);
     setIsVoiceAnalysing(false);
     setAnalysisStep(1);
@@ -618,7 +623,9 @@ export default function SpeechRegistrationScreen({
         if (onComplete) {
           onComplete(result.user);
         }
-        navigateToHome();
+        if (!embeddedFlow) {
+          navigateToHome();
+        }
       } else {
         setErrorMessage(result.message || 'Failed to complete registration.');
       }
@@ -667,6 +674,7 @@ export default function SpeechRegistrationScreen({
     setEmail('');
     setErrorMessage('');
     setRawTranscript('');
+    setIsProfileFormVisible(false);
   };
 
   const spin = rotateAnim.interpolate({
@@ -681,13 +689,19 @@ export default function SpeechRegistrationScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#080619" />
+      <StatusBar barStyle="light-content" backgroundColor="#0A0D14" />
+
+      {embeddedFlow ? (
+        <View style={styles.fixedProgressWrapper}>
+          <AuthFlowProgress activeStep={3} onBack={onBack} />
+        </View>
+      ) : null}
 
       <KeyboardAwareScrollView
         contentContainerStyle={[
           styles.scrollContent,
+          !isProfileFormVisible && styles.startScreenScrollContent,
           {
-            flexGrow: 1,
             paddingBottom: Math.max(insets.bottom + 20, 28),
           },
         ]}
@@ -696,140 +710,197 @@ export default function SpeechRegistrationScreen({
       >
         {/* Top Section */}
         <View style={styles.topSection}>
-          {/* Logo at top left with no background */}
-          <View style={styles.logoRow}>
-            <SalesBusterLogo width={140} color1="#9C40FA" color2="#5013C7" />
+          <View
+            style={styles.brandMark}
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel="SalesBuster logo"
+          >
+            <SalesBusterIcon size={60} borderRadius={12} />
           </View>
 
           {/* Screen Title & Subtitle */}
           <View style={styles.headerTextWrap}>
-            <Text style={styles.title}>Complete Your Profile</Text>
+            <Text style={styles.title}>Set up your profile</Text>
             <Text style={styles.subtitle}>
-              Tap the Voice AI button to speak your details, or fill them
-              directly below.
+              Speak your details or enter them manually. You can review everything before saving.
             </Text>
           </View>
 
-          {/* HERO VOICE CAPTURE CARD */}
-          <TouchableOpacity
-            style={styles.heroVoiceCard}
-            onPress={handleOpenVoiceCapture}
-            activeOpacity={0.88}
-          >
-            <View style={styles.heroVoicePulseHalo}>
-              <View style={styles.heroVoiceMicCircle}>
-                <MicIcon size={28} color="#FFFFFF" />
+        </View>
+
+        {!isProfileFormVisible ? (
+          <View style={styles.profileStartSection}>
+            <TouchableOpacity
+              style={styles.heroVoiceCard}
+              onPress={handleOpenVoiceCapture}
+              activeOpacity={0.88}
+              accessibilityRole="button"
+              accessibilityLabel="Fill your profile with Voice AI"
+            >
+              <View style={styles.heroVoicePulseHalo}>
+                <View style={styles.heroVoiceMicCircle}>
+                  <MicIcon size={25} color="#FFFFFF" />
+                </View>
+              </View>
+              <View style={styles.heroVoiceTextWrap}>
+                <Text style={styles.heroVoiceTitle}>Use Voice AI</Text>
+                <Text style={styles.heroVoiceSubtitle}>
+                  Speak naturally. We’ll fill in your profile.
+                </Text>
+              </View>
+              <View style={styles.heroVoiceStartBtn}>
+                <SparklesIcon size={13} color="#FFFFFF" />
+                <Text style={styles.heroVoiceStartBtnText}>Start</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.profilePreviewCard}>
+              <View style={styles.profilePreviewHeading}>
+                <SparklesIcon size={15} color="#A78BFA" />
+                <Text style={styles.profilePreviewTitle}>Your profile will include</Text>
+              </View>
+              <View style={styles.profilePreviewGrid}>
+                {['Name', 'Company', 'Role', 'City'].map(item => (
+                  <View key={item} style={styles.profilePreviewItem}>
+                    <View style={styles.profilePreviewDot} />
+                    <Text style={styles.profilePreviewItemText}>{item}</Text>
+                  </View>
+                ))}
               </View>
             </View>
-            <View style={styles.heroVoiceTextWrap}>
-              <Text style={styles.heroVoiceTitle}>Tap To Fill The Details</Text>
+
+            <View style={styles.profileEditHint}>
+              <CheckIcon size={14} color="#10B981" />
+              <Text style={styles.profileEditHintText}>
+                You can review and edit everything before saving.
+              </Text>
             </View>
-            <View style={styles.heroVoiceStartBtn}>
-              <SparklesIcon size={14} color="#FFFFFF" />
-              <Text style={styles.heroVoiceStartBtnText}>Speak</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
 
-        {/* Bottom Section: Form Fields & Action Buttons */}
-        <View style={styles.bottomSection}>
-          {/* Error Banner */}
-          {errorMessage ? (
-            <View style={styles.errorBanner}>
-              <AlertCircleIcon size={16} color="#EF4444" />
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          ) : null}
+            {errorMessage ? (
+              <View style={styles.errorBanner}>
+                <AlertCircleIcon size={16} color="#EF4444" />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            ) : null}
 
-          {/* 1. Full Name */}
-          <View style={styles.inputCard}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Full Name"
-              placeholderTextColor="#64748B"
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
-          </View>
-
-          {/* 2. Company Name */}
-          <View style={styles.inputCard}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Company Name"
-              placeholderTextColor="#64748B"
-              value={companyName}
-              onChangeText={setCompanyName}
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
-          </View>
-
-          {/* 3. Role / Designation */}
-          <View style={styles.inputCard}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Designation / Role"
-              placeholderTextColor="#64748B"
-              value={role}
-              onChangeText={setRole}
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
-          </View>
-
-          {/* 4. City */}
-          <View style={styles.inputCard}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="City"
-              placeholderTextColor="#64748B"
-              value={city}
-              onChangeText={setCity}
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
-          </View>
-
-          {/* Actions: Reset & Complete Profile Button (Matching brand gradient #4013C7 -> #9C40FA) */}
-          <View style={styles.actionBtnRow}>
             <TouchableOpacity
-              style={styles.resetButton}
-              onPress={handleReset}
-              disabled={isSubmitting}
-              activeOpacity={0.8}
+              style={styles.manualEntryButton}
+              onPress={() => {
+                setErrorMessage('');
+                setIsProfileFormVisible(true);
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Enter profile details manually"
             >
-              <Text style={styles.resetButtonText}>Reset</Text>
+              <Text style={styles.manualEntryText}>
+                Prefer typing? <Text style={styles.manualEntryLink}>Enter details manually</Text>
+              </Text>
             </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.bottomSection}>
+            <View style={styles.reviewDetailsCard}>
+              <CheckIcon size={17} color="#A78BFA" />
+              <View style={styles.reviewDetailsTextWrap}>
+                <Text style={styles.reviewDetailsTitle}>Review your details</Text>
+                <Text style={styles.reviewDetailsSubtitle}>
+                  Edit anything that needs a change, then save your profile.
+                </Text>
+              </View>
+            </View>
 
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                isSubmitting && styles.submitButtonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-              activeOpacity={0.85}
-            >
-              <BrandGradientBackground
-                id="speech_screen_submit_btn_grad"
-                borderRadius={15}
+            {errorMessage ? (
+              <View style={styles.errorBanner}>
+                <AlertCircleIcon size={16} color="#EF4444" />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.inputCard}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Full Name"
+                placeholderTextColor="#64748B"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+                autoCorrect={false}
               />
-              {isSubmitting ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <CheckIcon size={18} color="#FFFFFF" />
-                  <Text style={styles.submitButtonText}>
-                    Complete & Continue
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputCard}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Company Name"
+                placeholderTextColor="#64748B"
+                value={companyName}
+                onChangeText={setCompanyName}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
+
+            <View style={styles.inputCard}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Designation / Role"
+                placeholderTextColor="#64748B"
+                value={role}
+                onChangeText={setRole}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
+
+            <View style={styles.inputCard}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="City"
+                placeholderTextColor="#64748B"
+                value={city}
+                onChangeText={setCity}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
+
+            <View style={styles.actionBtnRow}>
+              <TouchableOpacity
+                style={styles.resetButton}
+                onPress={handleReset}
+                disabled={isSubmitting}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.resetButtonText}>Reset</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  isSubmitting && styles.submitButtonDisabled,
+                ]}
+                onPress={handleSubmit}
+                disabled={isSubmitting}
+                activeOpacity={0.85}
+              >
+                <BrandGradientBackground
+                  id="speech_screen_submit_btn_grad"
+                  borderRadius={15}
+                />
+                {isSubmitting ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <CheckIcon size={18} color="#FFFFFF" />
+                    <Text style={styles.submitButtonText}>Save & Continue</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        )}
       </KeyboardAwareScrollView>
 
       {/* ========================================================================= */}
@@ -891,10 +962,7 @@ export default function SpeechRegistrationScreen({
                     styles.voiceModalMicGlow,
                     {
                       opacity: glowAnim,
-                      transform: [
-                        { scale: pulseAnim },
-                        { rotate: spin },
-                      ],
+                      transform: [{ scale: pulseAnim }, { rotate: spin }],
                     },
                   ]}
                   pointerEvents="none"
@@ -1335,55 +1403,188 @@ export default function SpeechRegistrationScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#080619',
+    backgroundColor: '#0A0D14',
+  },
+  fixedProgressWrapper: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    backgroundColor: '#0A0D14',
+    zIndex: 2,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingTop: 12,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+  },
+  startScreenScrollContent: {
+    justifyContent: 'center',
   },
   topSection: {
-    paddingTop: 6,
-  },
-  logoRow: {
-    alignSelf: 'flex-start',
-    marginBottom: 16,
-    paddingTop: 2,
+    paddingTop: 0,
   },
   headerTextWrap: {
-    marginBottom: 18,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  brandMark: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   title: {
     color: '#F8FAFC',
-    fontSize: 22,
+    fontSize: 25,
     fontFamily: Fonts.family.bold,
-    marginBottom: 4,
+    marginBottom: 6,
+    textAlign: 'center',
   },
   subtitle: {
     color: '#94A3B8',
-    fontSize: 13,
+    fontSize: 13.5,
     fontFamily: Fonts.family.regular,
-    lineHeight: 18,
+    lineHeight: 20,
+    textAlign: 'center',
+    maxWidth: 320,
+  },
+  profileStartSection: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    marginTop: 4,
+  },
+  profilePreviewCard: {
+    marginTop: 14,
+    padding: 14,
+    backgroundColor: 'rgba(17, 24, 39, 0.82)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.14)',
+  },
+  profilePreviewHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  profilePreviewTitle: {
+    color: '#E2E8F0',
+    fontSize: 13,
+    fontFamily: Fonts.family.semiBold,
+    marginLeft: 8,
+  },
+  profilePreviewGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 8,
+  },
+  profilePreviewItem: {
+    width: '48%',
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    backgroundColor: 'rgba(148, 163, 184, 0.07)',
+    borderRadius: 9,
+  },
+  profilePreviewDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#A78BFA',
+    marginRight: 8,
+  },
+  profilePreviewItemText: {
+    color: '#CBD5E1',
+    fontSize: 11.5,
+    fontFamily: Fonts.family.medium,
+  },
+  profileEditHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingHorizontal: 4,
+  },
+  profileEditHintText: {
+    color: '#94A3B8',
+    fontSize: 11.5,
+    fontFamily: Fonts.family.regular,
+    marginLeft: 7,
+    flexShrink: 1,
   },
   bottomSection: {
-    marginTop: 24,
-    paddingTop: 16,
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#111827',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  manualEntryButton: {
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  manualEntryText: {
+    color: '#94A3B8',
+    fontSize: 12.5,
+    fontFamily: Fonts.family.regular,
+    textAlign: 'center',
+  },
+  manualEntryLink: {
+    color: '#C4B5FD',
+    fontFamily: Fonts.family.semiBold,
+    textDecorationLine: 'underline',
+  },
+  reviewDetailsCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.2)',
+    borderRadius: 13,
+    padding: 12,
+    marginBottom: 14,
+  },
+  reviewDetailsTextWrap: {
+    flex: 1,
+    marginLeft: 9,
+  },
+  reviewDetailsTitle: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontFamily: Fonts.family.semiBold,
+    marginBottom: 3,
+  },
+  reviewDetailsSubtitle: {
+    color: '#94A3B8',
+    fontSize: 11.5,
+    lineHeight: 16,
+    fontFamily: Fonts.family.regular,
   },
 
   // HERO VOICE TRIGGER CARD
   heroVoiceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161730',
-    borderWidth: 1.5,
-    borderColor: 'rgba(124, 58, 237, 0.45)',
-    borderRadius: 18,
-    padding: 14,
+    backgroundColor: '#17172A',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.38)',
+    borderRadius: 16,
+    padding: 11,
     shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 4,
-    marginTop: 24,
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 2,
+    marginTop: 14,
   },
   heroVoicePulseHalo: {
     width: 48,
@@ -1408,7 +1609,7 @@ const styles = StyleSheet.create({
   },
   heroVoiceTitle: {
     color: '#FFFFFF',
-    fontSize: 14.5,
+    fontSize: 13.5,
     fontFamily: Fonts.family.semiBold,
     marginBottom: 2,
   },
@@ -1435,17 +1636,17 @@ const styles = StyleSheet.create({
 
   // FORM FIELDS
   inputCard: {
-    backgroundColor: '#1B1C2E',
-    borderRadius: 14,
+    backgroundColor: '#0D1422',
+    borderRadius: 13,
     paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 18 : 18,
-    marginBottom: 12,
+    height: 54,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(148, 163, 184, 0.14)',
     justifyContent: 'center',
   },
   textInput: {
-    color: '#ADADAD',
+    color: '#F8FAFC',
     fontSize: 14,
     fontFamily: Fonts.family.regular,
     padding: 0,
