@@ -305,6 +305,7 @@ export default function LoginScreen() {
           onBack={step === 'otp' ? handleBackToPhone : undefined}
         />
 
+        <View style={styles.centeredContent}>
         {/* Animated Brand Header */}
         <Animated.View
           style={[
@@ -551,6 +552,7 @@ export default function LoginScreen() {
             </View>
           )}
         </Animated.View>
+        </View>
       </KeyboardAwareScrollView>
     </View>
   );
@@ -569,6 +571,10 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
     maxWidth: 480,
+  },
+  centeredContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   headerSection: {
     alignItems: 'center',

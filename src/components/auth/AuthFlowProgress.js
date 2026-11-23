@@ -21,35 +21,43 @@ export default function AuthFlowProgress({ activeStep, onBack }) {
             <BackIcon size={17} color="#CBD5E1" />
             <Text style={styles.backText}>Back</Text>
           </TouchableOpacity>
-        ) : (
-          <View />
-        )}
-        <Text style={styles.stepCount}>STEP {activeStep} OF {STEP_COUNT}</Text>
+        ) : null}
       </View>
 
       <View
-        style={styles.progressSegments}
+        style={styles.progressStepper}
         accessibilityRole="progressbar"
         accessibilityValue={{ min: 1, max: STEP_COUNT, now: activeStep }}
         accessibilityLabel={`Step ${activeStep} of ${STEP_COUNT}`}
       >
         {Array.from({ length: STEP_COUNT }, (_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.progressSegment,
-              index < activeStep && styles.progressSegmentActive,
-            ]}
-          >
-            <Text
+          <React.Fragment key={index}>
+            <View
               style={[
-                styles.progressNumber,
-                index < activeStep && styles.progressNumberActive,
+                styles.progressNode,
+                index < activeStep - 1 && styles.progressNodeComplete,
+                index === activeStep - 1 && styles.progressNodeCurrent,
               ]}
             >
-              {index + 1}
-            </Text>
-          </View>
+              <Text
+                style={[
+                  styles.progressNumber,
+                  index < activeStep - 1 && styles.progressNumberComplete,
+                  index === activeStep - 1 && styles.progressNumberActive,
+                ]}
+              >
+                {index + 1}
+              </Text>
+            </View>
+            {index < STEP_COUNT - 1 ? (
+              <View
+                style={[
+                  styles.progressConnector,
+                  index < activeStep - 1 && styles.progressConnectorActive,
+                ]}
+              />
+            ) : null}
+          </React.Fragment>
         ))}
       </View>
     </View>
@@ -65,7 +73,7 @@ const styles = StyleSheet.create({
     minHeight: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     marginBottom: 9,
   },
   backButton: {
@@ -81,31 +89,51 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.medium,
     marginLeft: 5,
   },
-  stepCount: {
-    color: '#64748B',
-    fontSize: 10,
-    letterSpacing: 0.8,
-    fontFamily: Fonts.family.semiBold,
-  },
-  progressSegments: {
+  progressStepper: {
+    width: '100%',
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    paddingVertical: 4,
   },
-  progressSegment: {
-    flex: 1,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(148, 163, 184, 0.2)',
+  progressNode: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#17172A',
+    borderWidth: 1.5,
+    borderColor: '#34334B',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  progressSegmentActive: {
+  progressNodeComplete: {
+    backgroundColor: 'rgba(139, 92, 246, 0.14)',
+    borderColor: '#8B5CF6',
+  },
+  progressNodeCurrent: {
+    backgroundColor: '#8B5CF6',
+    borderColor: '#A78BFA',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.28,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  progressConnector: {
+    height: 1.5,
+    flex: 1,
+    marginHorizontal: 7,
+    backgroundColor: '#34334B',
+  },
+  progressConnectorActive: {
     backgroundColor: '#8B5CF6',
   },
   progressNumber: {
-    color: '#94A3B8',
-    fontSize: 12,
+    color: '#77758C',
+    fontSize: 13,
     fontFamily: Fonts.family.semiBold,
+  },
+  progressNumberComplete: {
+    color: '#C4B5FD',
   },
   progressNumberActive: {
     color: '#FFFFFF',

@@ -99,7 +99,7 @@ const SmoothGuestTabBar = ({ state, descriptors, navigation }) => {
             },
           ]}
         >
-          <ActiveIcon size={26} color="#FFFFFF" focused />
+          <ActiveIcon size={26} color="#A879FF" focused />
           <Text numberOfLines={1} style={styles.activeLabel}>
             {activeTab.label}
           </Text>
@@ -187,10 +187,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 7,
-    backgroundColor: '#5013C7',
+    backgroundColor: 'transparent',
   },
   activeLabel: {
-    color: '#FFFFFF',
+    color: '#A879FF',
     fontSize: 13,
     fontFamily: Fonts.family.semiBold,
     includeFontPadding: false,

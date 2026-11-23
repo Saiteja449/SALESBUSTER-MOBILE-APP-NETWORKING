@@ -85,7 +85,7 @@ import {
   appendBusinessInfoLink,
 } from '../../utils/formatters';
 import BrandGradientBackground from '../../components/common/BrandGradientBackground';
-import { SalesBusterLogo } from '../../components/common/BrandLogo';
+import { SalesBusterIcon } from '../../components/common/BrandLogo';
 import { InlineVideoPlayer } from '../../components/common/InlineVideoPlayer';
 import CountdownBeepPlayer from '../../components/common/CountdownBeepPlayer';
 import { getFullMediaUrl } from '../../utils/constants';
@@ -255,13 +255,13 @@ export const ExactCaptureVoiceIcon = ({ size = 40 }) => (
   </Svg>
 );
 
-const ExactInfoIcon = ({ size = 16, color = '#0B0A1F' }) => (
+const ExactInfoIcon = ({ size = 16, color = '#FFFFFF' }) => (
   <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-    <Circle cx="11.2" cy="4.2" r="1.6" fill={color} />
+    <Circle cx="10.2" cy="4.2" r="1.8" fill={color} />
     <Path
-      d="M8.8 8h3l-2.2 8h2.8"
+      d="M8.2 8.5h2v7.5m-2 0h4"
       stroke={color}
-      strokeWidth={2}
+      strokeWidth={2.2}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
@@ -306,6 +306,17 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const [isAnalyzingVoiceAudio, setIsAnalyzingVoiceAudio] = useState(false);
   const [isVoiceAnalysing, setIsVoiceAnalysing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(1);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const analysisProgressAnim = useRef(new Animated.Value(0)).current;
+  const updateAnalysisProgress = (progress, duration = 500) => {
+    setAnalysisProgress(progress);
+    Animated.timing(analysisProgressAnim, {
+      toValue: progress,
+      duration,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  };
   const audioCaptureInfoRef = useRef(null);
   const keepAudioForAnalysisRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
@@ -339,15 +350,15 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       Animated.sequence([
         Animated.timing(infoPulseAnim, {
           toValue: 1,
-          duration: 567,
+          duration: 900,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(infoPulseAnim, {
           toValue: 0,
-          duration: 567,
+          duration: 900,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ]),
     );
@@ -359,24 +370,14 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     };
   }, [infoPulseAnim, isGuestHomeFocused, isTourModalVisible]);
 
-  const infoBorderGlowStyle = {
-    borderColor: infoPulseAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['#6D28D9', '#F3E8FF'],
-    }),
-    borderWidth: infoPulseAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [1, 3],
-    }),
-    shadowOpacity: infoPulseAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.45, 1],
-    }),
-    shadowRadius: infoPulseAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [4, 12],
-    }),
-  };
+  const infoAuraOpacity = infoPulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.72, 1],
+  });
+  const infoBorderOpacity = infoPulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.92, 1],
+  });
 
   const handleTourComplete = useCallback(() => {
     setIsTourModalVisible(false);
@@ -473,8 +474,17 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       }
 
       const oldValue = currentMeta.value || '';
+      // TextInput calls this for every keystroke. Preserve manual input exactly
+      // so trailing spaces remain available while the user enters multiword
+      // names; normalize AI and other programmatic values as before.
       const cleanValue =
-        typeof value === 'string' ? value.trim() : value ? String(value) : '';
+        isManual && typeof value === 'string'
+          ? value
+          : typeof value === 'string'
+          ? value.trim()
+          : value
+          ? String(value)
+          : '';
 
       if (field === 'name' && !isManual && !isReset) {
         if (!isStrictPersonNameCandidate(cleanValue)) {
@@ -552,7 +562,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       }
 
       // Auto-clean name field if it was previously misassigned with this company name
-      if (field === 'companyName' && cleanValue && !isReset) {
+      if (field === 'companyName' && cleanValue.trim() && !isReset && !isManual) {
         const currentName = (
           contactDetailsRef.current.name?.value ||
           fieldsRef.current.name ||
@@ -612,7 +622,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         confidence: newMeta.confidence,
       });
 
-      const hasValue = Boolean(cleanValue);
+      const hasValue = Boolean(cleanValue.trim());
       const isAiDetected = !isManual && !isReset && hasValue;
 
       if (field === 'name') {
@@ -717,6 +727,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const [isEventPickerVisible, setIsEventPickerVisible] = useState(false);
   const [isNewEventModalVisible, setIsNewEventModalVisible] = useState(false);
   const [isNoEventModalVisible, setIsNoEventModalVisible] = useState(false);
+  const handleContactInputPress = () => {
+    if (events.length === 0) {
+      setIsNoEventModalVisible(true);
+    }
+  };
   const [isProductsModalVisible, setIsProductsModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductDetailVisible, setIsProductDetailVisible] = useState(false);
@@ -1339,6 +1354,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     if (showAnalysingStatus) {
       setIsVoiceAnalysing(true);
       setAnalysisStep(1); // 1. Audio processing
+      updateAnalysisProgress(0, 0);
     }
 
     try {
@@ -1351,9 +1367,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
 
     const audioCapture = audioCaptureInfoRef.current;
     let extracted = null;
+    let analysisFailed = false;
 
     if (showAnalysingStatus) {
       setAnalysisStep(2); // 2. Extracting contact information
+      updateAnalysisProgress(30);
     }
 
     if (audioCapture?.filePath) {
@@ -1362,6 +1380,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         if (showAnalysingStatus) {
           await new Promise(r => setTimeout(r, 450));
           setAnalysisStep(3); // 3. Identifying name, company and designation
+          updateAnalysisProgress(55);
         }
 
         const analysis = await eventService.analyzeVoiceAudio(token, {
@@ -1372,6 +1391,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
 
         if (showAnalysingStatus) {
           setAnalysisStep(4); // 4. Fetching and populating contact details
+          updateAnalysisProgress(82);
         }
 
         const normalized = normalizeExtractedContact(extracted, {
@@ -1397,6 +1417,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         if (extracted.originalTranscript)
           setRawTranscript(extracted.originalTranscript);
       } catch (error) {
+        analysisFailed = true;
         console.error(
           '[CONTACT_CAPTURE] Post-stop audio analysis failed:',
           error?.response?.data?.message || error.message,
@@ -1412,12 +1433,18 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
           audioCapture.filePath,
         ).catch(() => {});
       }
+      if (showAnalysingStatus && analysisFailed) {
+        // Leave the bar below completion when the server analysis fails.
+        updateAnalysisProgress(90);
+      }
     } else if (showAnalysingStatus) {
       // Audio file not present; use live/interim transcript data
       await new Promise(r => setTimeout(r, 450));
       setAnalysisStep(3); // 3. Identifying name, company and designation
+      updateAnalysisProgress(55);
       await new Promise(r => setTimeout(r, 450));
       setAnalysisStep(4); // 4. Fetching and populating contact details
+      updateAnalysisProgress(82);
     }
 
     // Apply client-side phonetic & spell-check polish on captured fields
@@ -1465,13 +1492,19 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
 
     if (showAnalysingStatus) {
       // Mark all 4 steps complete with satisfying visual pause
-      setAnalysisStep(5);
+      if (!analysisFailed) {
+        setAnalysisStep(5);
+        updateAnalysisProgress(100);
+      } else {
+        updateAnalysisProgress(90);
+      }
       await new Promise(r => setTimeout(r, 650));
 
       // Automatically close popup after data has been successfully fetched and populated!
       setIsVoiceModalVisible(false);
       setIsVoiceAnalysing(false);
       setAnalysisStep(1);
+      updateAnalysisProgress(0, 0);
       orangeGlowAnim.setValue(0);
     }
   };
@@ -1628,6 +1661,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     orangeGlowAnim.setValue(0);
     setIsVoiceAnalysing(false);
     setAnalysisStep(1);
+    updateAnalysisProgress(0, 0);
     setIsVoiceModalVisible(false);
     if (isListening) {
       await stopVoiceCapture(false);
@@ -2549,7 +2583,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         >
           {/* 1. TOP ACTION NAVIGATION BAR */}
           <View style={styles.topBar}>
-            <SalesBusterLogo width={120} height={32} />
+            <SalesBusterIcon size={38} borderRadius={10} />
 
             {/* Header actions */}
             <View style={styles.topBarRight}>
@@ -2560,11 +2594,23 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               >
                 <Animated.View
                   pointerEvents="none"
-                  style={[styles.infoBorderGlow, infoBorderGlowStyle]}
+                  style={[styles.infoGlowAuraOuter, { opacity: infoAuraOpacity }]}
+                />
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.infoGlowAuraMid, { opacity: infoAuraOpacity }]}
+                />
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.infoGlowAuraInner, { opacity: infoAuraOpacity }]}
+                />
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.infoNeonBorder, { opacity: infoBorderOpacity }]}
                 />
                 <View style={styles.infoActionContent}>
-                  <ExactInfoIcon size={16} color="#E7D9FF" />
-                  <Text style={styles.headerActionText}>Info</Text>
+                  <ExactInfoIcon size={16} color="#FFFFFF" />
+                  <Text style={styles.infoActionText}>Info</Text>
                 </View>
               </TouchableOpacity>
               <TouchableOpacity
@@ -2713,9 +2759,15 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             style={styles.formSection}
           >
             {/* Name */}
-            <View style={styles.inputCard}>
+            <View
+              style={styles.inputCard}
+              onStartShouldSetResponderCapture={() => events.length === 0}
+              onResponderRelease={handleContactInputPress}
+            >
               <TextInput
                 style={styles.textInput}
+                editable={events.length > 0}
+                pointerEvents={events.length === 0 ? 'none' : 'auto'}
                 placeholder="Name"
                 placeholderTextColor="#64748B"
                 value={name}
@@ -2724,12 +2776,27 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 }}
                 autoCorrect={false}
               />
+              {events.length === 0 && (
+                <TouchableOpacity
+                  style={StyleSheet.absoluteFillObject}
+                  onPress={handleContactInputPress}
+                  activeOpacity={1}
+                  accessibilityRole="button"
+                  accessibilityLabel="Name; create an event to enter contact details"
+                />
+              )}
             </View>
 
             {/* Company Name */}
-            <View style={styles.inputCard}>
+            <View
+              style={styles.inputCard}
+              onStartShouldSetResponderCapture={() => events.length === 0}
+              onResponderRelease={handleContactInputPress}
+            >
               <TextInput
                 style={styles.textInput}
+                editable={events.length > 0}
+                pointerEvents={events.length === 0 ? 'none' : 'auto'}
                 placeholder="Company Name"
                 placeholderTextColor="#64748B"
                 value={companyName}
@@ -2738,12 +2805,27 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 }}
                 autoCorrect={false}
               />
+              {events.length === 0 && (
+                <TouchableOpacity
+                  style={StyleSheet.absoluteFillObject}
+                  onPress={handleContactInputPress}
+                  activeOpacity={1}
+                  accessibilityRole="button"
+                  accessibilityLabel="Company name; create an event to enter contact details"
+                />
+              )}
             </View>
 
             {/* Designation / Role */}
-            <View style={styles.inputCard}>
+            <View
+              style={styles.inputCard}
+              onStartShouldSetResponderCapture={() => events.length === 0}
+              onResponderRelease={handleContactInputPress}
+            >
               <TextInput
                 style={styles.textInput}
+                editable={events.length > 0}
+                pointerEvents={events.length === 0 ? 'none' : 'auto'}
                 placeholder="Designation / Role"
                 placeholderTextColor="#64748B"
                 value={designation}
@@ -2752,14 +2834,29 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 }}
                 autoCorrect={false}
               />
+              {events.length === 0 && (
+                <TouchableOpacity
+                  style={StyleSheet.absoluteFillObject}
+                  onPress={handleContactInputPress}
+                  activeOpacity={1}
+                  accessibilityRole="button"
+                  accessibilityLabel="Designation; create an event to enter contact details"
+                />
+              )}
             </View>
 
             {/* Phone Number with +91 Prefix */}
-            <View style={[styles.inputCard, styles.phoneCard]}>
+            <View
+              style={[styles.inputCard, styles.phoneCard]}
+              onStartShouldSetResponderCapture={() => events.length === 0}
+              onResponderRelease={handleContactInputPress}
+            >
               <Text style={styles.countryCodeText}>+91</Text>
               <View style={styles.phoneDivider} />
               <TextInput
                 style={[styles.textInput, styles.phoneInput]}
+                editable={events.length > 0}
+                pointerEvents={events.length === 0 ? 'none' : 'auto'}
                 placeholder="Mobile Number"
                 placeholderTextColor="#64748B"
                 keyboardType="phone-pad"
@@ -2774,12 +2871,27 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                   <CheckIcon size={12} color="#10B981" />
                 </View>
               )}
+              {events.length === 0 && (
+                <TouchableOpacity
+                  style={StyleSheet.absoluteFillObject}
+                  onPress={handleContactInputPress}
+                  activeOpacity={1}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mobile number; create an event to enter contact details"
+                />
+              )}
             </View>
 
             {/* Discussion summary textarea */}
-            <View style={[styles.inputCard, styles.summaryCard]}>
+            <View
+              style={[styles.inputCard, styles.summaryCard]}
+              onStartShouldSetResponderCapture={() => events.length === 0}
+              onResponderRelease={handleContactInputPress}
+            >
               <TextInput
                 style={[styles.textInput, styles.summaryInput]}
+                editable={events.length > 0}
+                pointerEvents={events.length === 0 ? 'none' : 'auto'}
                 placeholder="Discussion summary"
                 placeholderTextColor="#64748B"
                 multiline
@@ -2790,6 +2902,15 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                   updateContactField('summary', val, 'manual');
                 }}
               />
+              {events.length === 0 && (
+                <TouchableOpacity
+                  style={StyleSheet.absoluteFillObject}
+                  onPress={handleContactInputPress}
+                  activeOpacity={1}
+                  accessibilityRole="button"
+                  accessibilityLabel="Discussion summary; create an event to enter contact details"
+                />
+              )}
             </View>
 
             {/* Take a Selfie (optional) */}
@@ -3763,10 +3884,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               </TouchableOpacity>
             )}
 
-            {/* Microphone Area with Audio Waveforms and Glowing Halo */}
-            <View style={styles.voiceModalMicArea}>
-              {/* Left Animated Waveform Bars */}
-              {
+            {/* Hide the entire microphone visual while the analysis card is active. */}
+            {!isVoiceAnalysing && (
+              <View style={styles.voiceModalMicArea}>
+              {/* Waveform bars are hidden during analysis; the progress bar shows progress. */}
+              {!isVoiceAnalysing && (
                 <View style={styles.voiceModalWaveGroupLeft}>
                   {WAVE_BARS_LEFT.map((bar, idx) => (
                     <Animated.View
@@ -3792,7 +3914,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                     />
                   ))}
                 </View>
-              }
+              )}
 
               {/* Center Mic Button & Glowing Concentric Aura */}
               <View style={styles.voiceModalMicCenter}>
@@ -3992,8 +4114,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 </Animated.View>
               </View>
 
-              {/* Right Animated Waveform Bars */}
-              {
+              {!isVoiceAnalysing && (
                 <View style={styles.voiceModalWaveGroupRight}>
                   {WAVE_BARS_RIGHT.map((bar, idx) => (
                     <Animated.View
@@ -4019,8 +4140,9 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                     />
                   ))}
                 </View>
-              }
-            </View>
+              )}
+              </View>
+            )}
 
             {isVoiceAnalysing ? (
               /* ========================================================= */
@@ -4034,6 +4156,35 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                   <Text style={styles.analysingSubtitle}>
                     SalesBuster AI is extracting contact details from your conversation...
                   </Text>
+                </View>
+
+                <View style={styles.analysisProgressCard}>
+                  <View style={styles.analysisProgressLabels}>
+                    <Text style={styles.analysisProgressCaption}>
+                      {analysisProgress >= 100 ? 'Analysis complete' : 'Analysis progress'}
+                    </Text>
+                    <Text style={styles.analysisProgressPercent}>
+                      {analysisProgress}%
+                    </Text>
+                  </View>
+                  <View
+                    style={styles.analysisProgressTrack}
+                    accessibilityRole="progressbar"
+                    accessibilityLabel="Audio analysis progress"
+                    accessibilityValue={{ min: 0, max: 100, now: analysisProgress }}
+                  >
+                    <Animated.View
+                      style={[
+                        styles.analysisProgressFill,
+                        {
+                          width: analysisProgressAnim.interpolate({
+                            inputRange: [0, 100],
+                            outputRange: ['0%', '100%'],
+                          }),
+                        },
+                      ]}
+                    />
+                  </View>
                 </View>
 
                 {/* 4 Processing Steps with Status Indicators */}
@@ -4381,24 +4532,65 @@ const styles = StyleSheet.create({
   infoHeaderActionBtn: {
     position: 'relative',
     borderColor: 'transparent',
+    backgroundColor: '#120F2B',
+    overflow: 'visible',
+    zIndex: 2,
   },
   infoActionContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
+    zIndex: 10,
   },
-  infoBorderGlow: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#C4B5FD',
+  infoGlowAuraOuter: {
+    position: 'absolute',
+    top: -5,
+    bottom: -5,
+    left: -5,
+    right: -5,
+    borderRadius: 999,
+    borderWidth: 3.5,
+    borderColor: 'rgba(168, 85, 247, 0.38)',
     shadowColor: '#A855F7',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 11,
-    elevation: 8,
+    shadowOpacity: 0.95,
+    shadowRadius: 10,
+    zIndex: 1,
+  },
+  infoGlowAuraMid: {
+    position: 'absolute',
+    top: -2.5,
+    bottom: -2.5,
+    left: -2.5,
+    right: -2.5,
+    borderRadius: 999,
+    borderWidth: 2.2,
+    borderColor: 'rgba(192, 132, 252, 0.8)',
+    zIndex: 2,
+  },
+  infoGlowAuraInner: {
+    position: 'absolute',
+    top: 1.5,
+    bottom: 1.5,
+    left: 1.5,
+    right: 1.5,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: 'rgba(168, 85, 247, 0.5)',
     zIndex: 3,
+  },
+  infoNeonBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 999,
+    borderWidth: 1.8,
+    borderColor: '#FAF5FF',
+    zIndex: 4,
+  },
+  infoActionText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: Fonts.family.bold,
   },
   headerActionText: {
     color: '#E7D9FF',
@@ -6546,6 +6738,45 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.regular,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  analysisProgressCard: {
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(15, 16, 38, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.25)',
+  },
+  analysisProgressLabels: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  analysisProgressCaption: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontFamily: Fonts.family.medium,
+  },
+  analysisProgressPercent: {
+    color: '#FDBA74',
+    fontSize: 16,
+    fontFamily: Fonts.family.bold,
+    fontVariant: ['tabular-nums'],
+  },
+  analysisProgressTrack: {
+    width: '100%',
+    height: 8,
+    overflow: 'hidden',
+    borderRadius: 4,
+    backgroundColor: 'rgba(100, 116, 139, 0.3)',
+  },
+  analysisProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: '#F97316',
   },
   analysingStepsCard: {
     width: '100%',

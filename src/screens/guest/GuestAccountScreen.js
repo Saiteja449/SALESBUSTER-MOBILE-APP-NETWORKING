@@ -382,49 +382,6 @@ export const GuestAccountScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Upgrade Callout Card */}
-        <View style={styles.upgradeCard}>
-          <View style={styles.upgradeHeader}>
-            <View style={styles.sparkleIconWrap}>
-              <SparklesIcon size={18} color="#FFFFFF" />
-            </View>
-            <View style={styles.upgradeHeaderCol}>
-              <Text style={styles.upgradeTitle}>Upgrade to Full CRM</Text>
-              <Text style={styles.upgradeSubtitle}>
-                Unlock enterprise sales automation
-              </Text>
-            </View>
-          </View>
-
-          <Text style={styles.upgradeDesc}>
-            Take your business to the next level with full CRM capabilities:
-          </Text>
-
-          <View style={styles.featureList}>
-            {crmFeatures.map((feat, idx) => (
-              <View key={idx} style={styles.featureItem}>
-                <View style={styles.checkWrap}>
-                  <CheckIcon size={12} color="#A78BFA" />
-                </View>
-                <View style={styles.featureCol}>
-                  <Text style={styles.featureTitle}>{feat.title}</Text>
-                  <Text style={styles.featureDesc}>{feat.desc}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.upgradeActionBox}>
-            <Text style={styles.upgradeNotice}>
-              Visit{' '}
-              <Text style={{ color: '#C084FC', fontFamily: Fonts.family.bold }}>
-                salesbuster.ai
-              </Text>{' '}
-              to upgrade your workspace to full CRM.
-            </Text>
-          </View>
-        </View>
-
         {/* Account Actions */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity

@@ -173,7 +173,9 @@ export const eventService = {
       {
         headers: {
           Authorization: `Bearer ${activeToken}`,
-          'Content-Type': 'multipart/form-data',
+          // Let Axios / React Native attach the multipart boundary. Setting
+          // this header manually can leave the boundary off the request, so
+          // Multer never receives `req.file` on the backend.
         },
         timeout: 120000,
       },

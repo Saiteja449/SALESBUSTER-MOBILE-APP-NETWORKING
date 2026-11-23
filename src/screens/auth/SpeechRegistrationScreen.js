@@ -151,6 +151,7 @@ export default function SpeechRegistrationScreen({
   const [isListening, setIsListening] = useState(false);
   const [isVoiceAnalysing, setIsVoiceAnalysing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(1);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
   const [voiceCountdown, setVoiceCountdown] = useState(null);
   const [voiceRecordingSeconds, setVoiceRecordingSeconds] = useState(0);
   const [isCountdownBeepPlaying, setIsCountdownBeepPlaying] = useState(false);
@@ -174,6 +175,51 @@ export default function SpeechRegistrationScreen({
   const waveAnim1 = useRef(new Animated.Value(1)).current;
   const waveAnim2 = useRef(new Animated.Value(1)).current;
   const orangeGlowAnim = useRef(new Animated.Value(0)).current;
+  const analysisProgressAnim = useRef(new Animated.Value(0)).current;
+
+  // Hero Voice Card glowing neon border pulse animation (matching GuestHomeScreen Info glow)
+  const heroVoicePulseAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(heroVoicePulseAnim, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(heroVoicePulseAnim, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulse.start();
+    return () => {
+      pulse.stop();
+      heroVoicePulseAnim.stopAnimation();
+    };
+  }, [heroVoicePulseAnim]);
+
+  const heroVoiceAuraOpacity = heroVoicePulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.72, 1],
+  });
+  const heroVoiceBorderOpacity = heroVoicePulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.92, 1],
+  });
+  const updateAnalysisProgress = (progress, duration = 500) => {
+    setAnalysisProgress(progress);
+    Animated.timing(analysisProgressAnim, {
+      toValue: progress,
+      duration,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  };
 
   const navigateToHome = useCallback(() => {
     if (navigation?.reset) {
@@ -442,6 +488,7 @@ export default function SpeechRegistrationScreen({
     setIsListening(false);
     setIsVoiceAnalysing(false);
     setAnalysisStep(1);
+    updateAnalysisProgress(0, 0);
     setVoiceCountdown(3);
     orangeGlowAnim.setValue(0);
     setErrorMessage('');
@@ -505,6 +552,7 @@ export default function SpeechRegistrationScreen({
 
     setIsVoiceAnalysing(true);
     setAnalysisStep(1); // 1. Audio processing
+    updateAnalysisProgress(0, 0);
     audioCaptureInfoRef.current = null;
     keepAudioForAnalysisRef.current = true;
 
@@ -518,6 +566,7 @@ export default function SpeechRegistrationScreen({
 
     // Step 2: Extracting registration details
     setAnalysisStep(2);
+    updateAnalysisProgress(30);
 
     const audioCapture = audioCaptureInfoRef.current;
     let serverExtracted = null;
@@ -526,6 +575,7 @@ export default function SpeechRegistrationScreen({
       try {
         await new Promise(r => setTimeout(r, 450));
         setAnalysisStep(3); // 3. Identifying name, company, role, city
+        updateAnalysisProgress(55);
 
         const token = user?.token;
         const analysis = await eventService.analyzeVoiceAudio(token, {
@@ -533,6 +583,7 @@ export default function SpeechRegistrationScreen({
           eventName: 'Guest Registration',
         });
         serverExtracted = analysis?.data || {};
+        updateAnalysisProgress(68);
 
         if (serverExtracted.name && (!name || name.trim().length === 0)) {
           setName(serverExtracted.name);
@@ -569,11 +620,13 @@ export default function SpeechRegistrationScreen({
     } else {
       await new Promise(r => setTimeout(r, 450));
       setAnalysisStep(3);
+      updateAnalysisProgress(55);
     }
 
     // Step 4: Supplement with client-side transcript entity extraction
     await new Promise(r => setTimeout(r, 450));
     setAnalysisStep(4);
+    updateAnalysisProgress(82);
 
     const extName = extractName(rawTranscript);
     const extCompany = extractCompanyName(rawTranscript);
@@ -589,6 +642,7 @@ export default function SpeechRegistrationScreen({
     // Step 5: Complete & all checkmarks green
     await new Promise(r => setTimeout(r, 500));
     setAnalysisStep(5);
+    updateAnalysisProgress(100);
     await new Promise(r => setTimeout(r, 650));
 
     // Automatically close the popup after data has been successfully fetched and populated
@@ -596,6 +650,7 @@ export default function SpeechRegistrationScreen({
     setIsVoiceModalVisible(false);
     setIsVoiceAnalysing(false);
     setAnalysisStep(1);
+    updateAnalysisProgress(0, 0);
     setIsListening(false);
     orangeGlowAnim.setValue(0);
   };
@@ -622,6 +677,7 @@ export default function SpeechRegistrationScreen({
     orangeGlowAnim.setValue(0);
     setIsVoiceAnalysing(false);
     setAnalysisStep(1);
+    updateAnalysisProgress(0, 0);
     setIsVoiceModalVisible(false);
     if (isListening) {
       liveVoiceRef.current?.stopVoiceSession?.().catch(() => {});
@@ -698,6 +754,7 @@ export default function SpeechRegistrationScreen({
     setVoiceRecordingSeconds(0);
     setIsVoiceModalVisible(false);
     setAnalysisStep(1);
+    updateAnalysisProgress(0, 0);
     orangeGlowAnim.setValue(0);
 
     Keyboard.dismiss();
@@ -737,8 +794,13 @@ export default function SpeechRegistrationScreen({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {embeddedFlow ? <AuthFlowProgress activeStep={3} onBack={onBack} /> : null}
+        <View style={styles.progressHeaderSlot}>
+          {embeddedFlow ? (
+            <AuthFlowProgress activeStep={3} onBack={onBack} />
+          ) : null}
+        </View>
 
+        <View style={styles.centeredFlowContent}>
         {/* Top Section */}
         <View style={styles.topSection}>
           <View
@@ -769,37 +831,46 @@ export default function SpeechRegistrationScreen({
               accessibilityRole="button"
               accessibilityLabel="Fill your profile with Voice AI"
             >
-              <View style={styles.heroVoicePulseHalo}>
-                <View style={styles.heroVoiceMicCircle}>
-                  <MicIcon size={25} color="#FFFFFF" />
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.heroVoiceGlowAuraOuter,
+                  { opacity: heroVoiceAuraOpacity },
+                ]}
+              />
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.heroVoiceGlowAuraMid,
+                  { opacity: heroVoiceAuraOpacity },
+                ]}
+              />
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.heroVoiceGlowAuraInner,
+                  { opacity: heroVoiceAuraOpacity },
+                ]}
+              />
+              <View style={styles.heroVoiceContent}>
+                <View style={styles.heroVoicePulseHalo}>
+                  <View style={styles.heroVoiceMicCircle}>
+                    <MicIcon size={25} color="#FFFFFF" />
+                  </View>
                 </View>
-              </View>
-              <View style={styles.heroVoiceTextWrap}>
-                <Text style={styles.heroVoiceTitle}>Use Voice AI</Text>
-                <Text style={styles.heroVoiceSubtitle}>
-                  Speak naturally. We’ll fill in your profile.
-                </Text>
-              </View>
-              <View style={styles.heroVoiceStartBtn}>
-                <SparklesIcon size={13} color="#FFFFFF" />
-                <Text style={styles.heroVoiceStartBtnText}>Start</Text>
+                <View style={styles.heroVoiceTextWrap}>
+                  <Text style={styles.heroVoiceTitle}>Use Voice AI</Text>
+                  <Text style={styles.heroVoiceSubtitle}>
+                    Speak naturally. We’ll fill in your profile.
+                  </Text>
+                </View>
+                <View style={styles.heroVoiceStartBtn}>
+                  <SparklesIcon size={13} color="#FFFFFF" />
+                  <Text style={styles.heroVoiceStartBtnText}>Start</Text>
+                </View>
               </View>
             </TouchableOpacity>
 
-            <View style={styles.profilePreviewCard}>
-              <View style={styles.profilePreviewHeading}>
-                <SparklesIcon size={15} color="#A78BFA" />
-                <Text style={styles.profilePreviewTitle}>Your profile will include</Text>
-              </View>
-              <View style={styles.profilePreviewGrid}>
-                {['Name', 'Company', 'Role', 'City'].map(item => (
-                  <View key={item} style={styles.profilePreviewItem}>
-                    <View style={styles.profilePreviewDot} />
-                    <Text style={styles.profilePreviewItemText}>{item}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
 
             <View style={styles.profileEditHint}>
               <CheckIcon size={14} color="#10B981" />
@@ -932,6 +1003,7 @@ export default function SpeechRegistrationScreen({
             </View>
           </View>
         )}
+        </View>
       </KeyboardAwareScrollView>
 
       {/* ========================================================================= */}
@@ -961,8 +1033,9 @@ export default function SpeechRegistrationScreen({
               <XIcon size={16} color="#94A3B8" />
             </TouchableOpacity>
 
-            {/* WAVEFORM + MIC HERO ANIMATION */}
-            <View style={styles.voiceModalMicArea}>
+            {/* Keep the analysis card as the only content during processing. */}
+            {!isVoiceAnalysing && (
+              <View style={styles.voiceModalMicArea}>
               {/* Left Animated Waveform Bars */}
               <View style={styles.voiceModalWaveGroupLeft}>
                   {WAVE_BARS_LEFT.map((bar, idx) => (
@@ -1208,7 +1281,8 @@ export default function SpeechRegistrationScreen({
                     />
                   ))}
               </View>
-            </View>
+              </View>
+            )}
 
             {isVoiceAnalysing ? (
               /* STATE: ANALYSING YOUR CONVERSATION */
@@ -1221,6 +1295,41 @@ export default function SpeechRegistrationScreen({
                     SalesBuster AI is extracting profile details from your
                     conversation...
                   </Text>
+                </View>
+
+                <View style={styles.analysisProgressCard}>
+                  <View style={styles.analysisProgressLabels}>
+                    <Text style={styles.analysisProgressCaption}>
+                      {analysisProgress >= 100
+                        ? 'Analysis complete'
+                        : 'Analysis progress'}
+                    </Text>
+                    <Text style={styles.analysisProgressPercent}>
+                      {analysisProgress}%
+                    </Text>
+                  </View>
+                  <View
+                    style={styles.analysisProgressTrack}
+                    accessibilityRole="progressbar"
+                    accessibilityLabel="Speech registration analysis progress"
+                    accessibilityValue={{
+                      min: 0,
+                      max: 100,
+                      now: analysisProgress,
+                    }}
+                  >
+                    <Animated.View
+                      style={[
+                        styles.analysisProgressFill,
+                        {
+                          width: analysisProgressAnim.interpolate({
+                            inputRange: [0, 100],
+                            outputRange: ['0%', '100%'],
+                          }),
+                        },
+                      ]}
+                    />
+                  </View>
                 </View>
 
                 {/* 4 Processing Steps with Status Indicators */}
@@ -1277,13 +1386,12 @@ export default function SpeechRegistrationScreen({
             ) : (
               /* STATE: LISTENING / PAUSED / COUNTDOWN */
               <>
-                {/* Gemini AI Agent Connection Status */}
-                <View style={styles.geminiBadge}>
+                {/* <View style={styles.geminiBadge}>
                   <SparklesIcon
                     size={12}
                     color={liveVoice?.isConnected ? '#10B981' : '#A78BFA'}
                   />
-                  <Text
+                  {/* <Text
                     style={[
                       styles.geminiBadgeText,
                       liveVoice?.isConnected && styles.geminiBadgeTextConnected,
@@ -1292,8 +1400,8 @@ export default function SpeechRegistrationScreen({
                     {liveVoice?.isConnected
                       ? 'SalesBuster AI Agent Connected'
                       : 'Connecting to SalesBuster AI...'}
-                  </Text>
-                </View>
+                  </Text> 
+                </View> 
 
                 {/* Status Dot & Live Duration Timer */}
                 <View style={styles.voiceStatusRow}>
@@ -1350,7 +1458,7 @@ export default function SpeechRegistrationScreen({
                   <Text style={styles.voiceTranscriptionText}>
                     {rawTranscript.trim().length > 0
                       ? rawTranscript
-                      : 'Speak clearly into the microphone... (e.g. "I am Rahul Sharma, Founder of Nexa Corp, Mumbai")'}
+                      : 'Speak clearly and loudly to capture the following details:'}
                   </Text>
                 </View>
 
@@ -1446,6 +1554,14 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 480,
     alignSelf: 'center',
+  },
+  progressHeaderSlot: {
+    minHeight: 91,
+  },
+  centeredFlowContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    transform: [{ translateY: -30 }],
   },
   startScreenScrollContent: {
     justifyContent: 'flex-start',
@@ -1597,19 +1713,62 @@ const styles = StyleSheet.create({
 
   // HERO VOICE TRIGGER CARD
   heroVoiceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#17172A',
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.38)',
+    backgroundColor: '#120F2B',
     borderRadius: 16,
     padding: 11,
-    shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
-    shadowRadius: 8,
-    elevation: 2,
+    overflow: 'visible',
+    position: 'relative',
     marginTop: 14,
+  },
+  heroVoiceContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    zIndex: 10,
+  },
+  heroVoiceGlowAuraOuter: {
+    position: 'absolute',
+    top: -5,
+    bottom: -5,
+    left: -5,
+    right: -5,
+    borderRadius: 21,
+    borderWidth: 3.5,
+    borderColor: 'rgba(168, 85, 247, 0.38)',
+    shadowColor: '#A855F7',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.95,
+    shadowRadius: 10,
+    zIndex: 1,
+  },
+  heroVoiceGlowAuraMid: {
+    position: 'absolute',
+    top: -2.5,
+    bottom: -2.5,
+    left: -2.5,
+    right: -2.5,
+    borderRadius: 18.5,
+    borderWidth: 2.2,
+    borderColor: 'rgba(192, 132, 252, 0.8)',
+    zIndex: 2,
+  },
+  heroVoiceGlowAuraInner: {
+    position: 'absolute',
+    top: 1.5,
+    bottom: 1.5,
+    left: 1.5,
+    right: 1.5,
+    borderRadius: 14.5,
+    borderWidth: 1.5,
+    borderColor: 'rgba(168, 85, 247, 0.5)',
+    zIndex: 3,
+  },
+  heroVoiceNeonBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 16,
+    borderWidth: 1.8,
+    borderColor: '#FAF5FF',
+    zIndex: 4,
   },
   heroVoicePulseHalo: {
     width: 48,
@@ -2034,6 +2193,45 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.regular,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  analysisProgressCard: {
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(15, 16, 38, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.25)',
+  },
+  analysisProgressLabels: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  analysisProgressCaption: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontFamily: Fonts.family.medium,
+  },
+  analysisProgressPercent: {
+    color: '#FDBA74',
+    fontSize: 16,
+    fontFamily: Fonts.family.bold,
+    fontVariant: ['tabular-nums'],
+  },
+  analysisProgressTrack: {
+    width: '100%',
+    height: 8,
+    overflow: 'hidden',
+    borderRadius: 4,
+    backgroundColor: 'rgba(100, 116, 139, 0.3)',
+  },
+  analysisProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: '#F97316',
   },
   analysingStepsCard: {
     width: '100%',

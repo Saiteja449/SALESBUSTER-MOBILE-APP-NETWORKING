@@ -30,7 +30,7 @@ const CountdownBeepPlayer = ({ onFinished }) => {
 
   return (
     <Video
-      source={require('../../../assets/audio/voice-countdown-beep-loud.wav')}
+      source={require('../../../assets/audio/censor_beep_1_second_louder.mp3')}
       paused={false}
       repeat={false}
       volume={1}
