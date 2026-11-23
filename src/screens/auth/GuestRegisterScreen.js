@@ -42,7 +42,7 @@ import { SalesBusterLogo } from '../../components/common/BrandLogo';
 import BrandGradientBackground from '../../components/common/BrandGradientBackground';
 
 const PALETTE = {
-  bgDeep: 'rgba(4, 5, 15)',
+  bgDeep: '#0B0A1F',
   bgStatusBar: '#04050F',
   cardBg: '#17162A',
   cardBorder: '#363252',

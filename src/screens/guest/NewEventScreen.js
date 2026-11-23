@@ -658,7 +658,7 @@ export const NewEventScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B0C16',
+    backgroundColor: '#0B0A1F',
   },
   container: {
     flex: 1,

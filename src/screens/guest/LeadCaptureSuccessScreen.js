@@ -464,7 +464,7 @@ export const LeadCaptureSuccessScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0A0918',
+    backgroundColor: '#0B0A1F',
   },
   container: {
     flex: 1,

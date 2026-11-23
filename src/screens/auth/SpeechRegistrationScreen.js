@@ -308,85 +308,95 @@ export default function SpeechRegistrationScreen({
     };
   }, [isVoiceModalVisible, isListening, voiceCountdown, liveVoice?.isPaused]);
 
-  // Waveform and glow animations
+  // Keep the waveform responsive to mic input, like the Guest Home voice modal.
   const isVoiceActivelyRecording = Boolean(
     (isListening && !liveVoice?.isPaused && voiceCountdown === null) ||
       isVoiceAnalysing,
   );
 
   useEffect(() => {
-    if (isVoiceActivelyRecording) {
-      Animated.timing(orangeGlowAnim, {
-        toValue: 1,
-        duration: 350,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }).start();
+    Animated.timing(orangeGlowAnim, {
+      toValue: isVoiceActivelyRecording ? 1 : 0,
+      duration: 350,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  }, [isVoiceActivelyRecording, orangeGlowAnim]);
 
-      const loop = Animated.loop(
+  useEffect(() => {
+    let animLoop;
+    if (isVoiceActivelyRecording) {
+      const volume = isListening ? liveVoice?.inputVolume || 0.15 : 0.3;
+      const targetPulse = Math.min(1.6, Math.max(1, 1 + volume * 1.4));
+
+      animLoop = Animated.loop(
         Animated.parallel([
           Animated.sequence([
             Animated.timing(pulseAnim, {
-              toValue: 1.18,
-              duration: 900,
+              toValue: targetPulse,
+              duration: 350,
               easing: Easing.inOut(Easing.ease),
               useNativeDriver: true,
             }),
             Animated.timing(pulseAnim, {
               toValue: 1,
-              duration: 900,
+              duration: 350,
               easing: Easing.inOut(Easing.ease),
               useNativeDriver: true,
             }),
           ]),
           Animated.sequence([
+            Animated.timing(glowAnim, {
+              toValue: Math.min(1, 0.75 + volume * 0.8),
+              duration: 350,
+              useNativeDriver: true,
+            }),
+            Animated.timing(glowAnim, {
+              toValue: 0.65,
+              duration: 350,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
             Animated.timing(waveAnim1, {
-              toValue: 1.8,
-              duration: 400,
+              toValue: Math.min(2, Math.max(0.6, 1 + volume * 2.2)),
+              duration: 300,
               useNativeDriver: true,
             }),
             Animated.timing(waveAnim1, {
-              toValue: 0.6,
-              duration: 400,
+              toValue: 0.8,
+              duration: 300,
               useNativeDriver: true,
             }),
           ]),
           Animated.sequence([
             Animated.timing(waveAnim2, {
-              toValue: 2.1,
-              duration: 500,
+              toValue: 0.75,
+              duration: 350,
               useNativeDriver: true,
             }),
             Animated.timing(waveAnim2, {
-              toValue: 0.5,
-              duration: 500,
+              toValue: Math.min(1.8, Math.max(0.6, 1 + volume * 2)),
+              duration: 350,
               useNativeDriver: true,
             }),
           ]),
-          Animated.timing(rotateAnim, {
-            toValue: 1,
-            duration: 8000,
-            easing: Easing.linear,
-            useNativeDriver: true,
-          }),
         ]),
       );
-      loop.start();
-      return () => loop.stop();
+      animLoop.start();
     } else {
-      Animated.timing(orangeGlowAnim, {
-        toValue: 0,
-        duration: 350,
-        useNativeDriver: true,
-      }).start();
       pulseAnim.setValue(1);
+      glowAnim.setValue(0.85);
       waveAnim1.setValue(1);
       waveAnim2.setValue(1);
       rotateAnim.setValue(0);
     }
+    return () => animLoop?.stop();
   }, [
     isVoiceActivelyRecording,
-    orangeGlowAnim,
+    isListening,
+    liveVoice?.inputVolume,
+    glowAnim,
     pulseAnim,
     waveAnim1,
     waveAnim2,
@@ -1427,7 +1437,7 @@ export default function SpeechRegistrationScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0A0D14',
+    backgroundColor: '#0B0A1F',
   },
   scrollContent: {
     flexGrow: 1,
@@ -1438,7 +1448,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   startScreenScrollContent: {
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   topSection: {
     paddingTop: 0,

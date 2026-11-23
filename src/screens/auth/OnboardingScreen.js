@@ -24,7 +24,7 @@ import { Fonts } from '../../styles/Fonts';
 
 export const APP_ONBOARDING_KEY = '@has_seen_app_onboarding_v1';
 
-const BG_COLOR = '#080619';
+const BG_COLOR = '#0B0A1F';
 
 const ONBOARDING_PAGES = [
   {

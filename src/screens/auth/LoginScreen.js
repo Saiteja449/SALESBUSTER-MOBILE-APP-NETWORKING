@@ -29,7 +29,7 @@ import AuthFlowProgress from '../../components/auth/AuthFlowProgress';
 import SpeechRegistrationScreen from './SpeechRegistrationScreen';
 
 const PALETTE = {
-  bgDeep: '#0A0D14',
+  bgDeep: '#0B0A1F',
   bgStatusBar: '#0A0D14',
   inputBg: '#141A29',
   inputBgFocused: '#161F36',
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingTop: 8,
     paddingHorizontal: 20,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignSelf: 'center',
     width: '100%',
     maxWidth: 480,

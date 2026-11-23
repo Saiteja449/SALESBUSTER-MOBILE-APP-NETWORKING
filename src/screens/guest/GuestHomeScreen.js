@@ -93,98 +93,6 @@ import { getFullMediaUrl } from '../../utils/constants';
 const LAST_EVENT_STORAGE_KEY = 'salesbuster_last_selected_event_id';
 const { GeminiVoiceAudioModule } = NativeModules;
 
-const PRODUCTS_CATALOG = [
-  {
-    id: 'bi_analyst',
-    title: 'BI Analyst',
-    tag: 'Analytics',
-    imageUrl:
-      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&q=80',
-    fallbackBg: '#1A1838',
-    description:
-      'A dedicated BI Analyst that turns your raw numbers into clear, actionable insight — dashboards, KPIs and reports your whole team can trust.',
-    features: [
-      'Live dashboards & KPI tracking',
-      'Automated daily / weekly reports',
-      'Sales funnel & revenue insights',
-    ],
-  },
-  {
-    id: 'target_audience',
-    title: 'Target Audience',
-    tag: 'Growth',
-    imageUrl:
-      'https://images.unsplash.com/photo-1533750349088-cd871a92f312?w=400&q=80',
-    fallbackBg: '#2A1828',
-    description:
-      'Identify, segment and engage your high-value audience segments with precision-engineered data analytics and customer persona intelligence.',
-    features: [
-      'High-intent buyer segmentation',
-      'Persona-based audience discovery',
-      'Multi-channel conversion optimization',
-    ],
-  },
-  {
-    id: 'whatsapp_chat_automation',
-    title: 'WhatsApp Chat Automation',
-    tag: 'Cloude API',
-    imageUrl:
-      'https://images.unsplash.com/photo-1611746872915-64382b5c76da?w=400&q=80',
-    fallbackBg: '#132822',
-    description:
-      'Supercharge customer communication with intelligent WhatsApp chatbots that qualify leads, answer FAQs, and book meetings 24/7.',
-    features: [
-      'Instant automated inquiry replies',
-      'Lead qualification & routing',
-      'Official Meta Cloud API integration',
-    ],
-  },
-  {
-    id: 'whatsapp_campaigns',
-    title: 'WhatsApp Campaigns',
-    tag: 'Marketing',
-    imageUrl:
-      'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=400&q=80',
-    fallbackBg: '#162338',
-    description:
-      'Launch high-conversion broadcast campaigns, promotional announcements, and contact follow-up reminders with enterprise-grade deliverability.',
-    features: [
-      'Targeted broadcast messaging',
-      'Automated opt-in & click tracking',
-      'Rich media & interactive CTAs',
-    ],
-  },
-  {
-    id: 'followup_automation',
-    title: '24/7 Follow-up Automation',
-    tag: 'Automation',
-    imageUrl:
-      'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&q=80',
-    fallbackBg: '#181C38',
-    description:
-      'Never drop another hot lead. Instantly follow up across WhatsApp, SMS, and email the moment a prospect shows interest.',
-    features: [
-      'Multi-touch smart follow-up sequences',
-      'AI response trigger detection',
-      'Automated pipeline status updates',
-    ],
-  },
-  {
-    id: 'call_recording',
-    title: 'Call Recording & Call Log',
-    tag: 'Sales OPS',
-    imageUrl:
-      'https://images.unsplash.com/photo-1512428559087-560fa5ceab42?w=400&q=80',
-    fallbackBg: '#1F1A30',
-    description:
-      'Automatically record and transcribe client calls, analyze sales performance, and keep your CRM updated with zero manual work.',
-    features: [
-      'Background call recording & sync',
-      'AI transcription & sentiment analysis',
-      'Automatic CRM activity logging',
-    ],
-  },
-];
 
 // Exact acoustic waveform harmonics matching reference design (Image 2)
 const WAVE_BARS_LEFT = [
@@ -433,13 +341,13 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
           toValue: 1,
           duration: 567,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(infoPulseAnim, {
           toValue: 0,
           duration: 567,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]),
     );
@@ -451,19 +359,23 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     };
   }, [infoPulseAnim, isGuestHomeFocused, isTourModalVisible]);
 
-  const infoPulseStyle = {
-    opacity: infoPulseAnim.interpolate({
+  const infoBorderGlowStyle = {
+    borderColor: infoPulseAnim.interpolate({
       inputRange: [0, 1],
-      outputRange: [0.72, 1],
+      outputRange: ['#6D28D9', '#F3E8FF'],
     }),
-    transform: [
-      {
-        scale: infoPulseAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [1, 1.045],
-        }),
-      },
-    ],
+    borderWidth: infoPulseAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 3],
+    }),
+    shadowOpacity: infoPulseAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.45, 1],
+    }),
+    shadowRadius: infoPulseAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [4, 12],
+    }),
   };
 
   const handleTourComplete = useCallback(() => {
@@ -809,7 +721,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductDetailVisible, setIsProductDetailVisible] = useState(false);
   const [isAccountModalVisible, setIsAccountModalVisible] = useState(false);
-  const [productsList, setProductsList] = useState(PRODUCTS_CATALOG);
+  const [productsList, setProductsList] = useState([]);
   const [tourVideoConfig, setTourVideoConfig] = useState(null);
 
   // Helper to determine if product media is video
@@ -2637,19 +2549,23 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         >
           {/* 1. TOP ACTION NAVIGATION BAR */}
           <View style={styles.topBar}>
-            <SalesBusterLogo width={142} height={30} />
+            <SalesBusterLogo width={120} height={32} />
 
             {/* Header actions */}
             <View style={styles.topBarRight}>
               <TouchableOpacity
-                style={styles.headerActionBtn}
+                style={[styles.headerActionBtn, styles.infoHeaderActionBtn]}
                 onPress={() => setIsTourModalVisible(true)}
                 activeOpacity={0.8}
               >
-                <Animated.View style={[styles.infoActionContent, infoPulseStyle]}>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.infoBorderGlow, infoBorderGlowStyle]}
+                />
+                <View style={styles.infoActionContent}>
                   <ExactInfoIcon size={16} color="#E7D9FF" />
                   <Text style={styles.headerActionText}>Info</Text>
-                </Animated.View>
+                </View>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.headerActionBtn}
@@ -3121,72 +3037,123 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       <Modal
         visible={Boolean(isNoEventModalVisible && !isTourModalVisible)}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setIsNoEventModalVisible(false)}
       >
         <TouchableOpacity
-          style={styles.modalOverlayCentered}
+          style={styles.noEventModalBackdrop}
           activeOpacity={1}
           onPress={() => setIsNoEventModalVisible(false)}
         >
           <View
-            style={styles.noEventModalCard}
+            style={styles.noEventBottomCard}
             onStartShouldSetResponder={() => true}
           >
-            <TouchableOpacity
-              style={styles.noEventCloseBtn}
-              onPress={() => setIsNoEventModalVisible(false)}
-              activeOpacity={0.7}
-            >
-              <XIcon size={18} color="#94A3B8" />
-            </TouchableOpacity>
-
-            <View style={styles.noEventIconWrap}>
-              <View style={styles.noEventCategoryIcon}>
-                <View style={styles.noEventCategoryDot} />
-                <View style={styles.noEventCategoryLine} />
-                <View style={styles.noEventCategoryLineShort} />
+            <View style={styles.noEventContentRow}>
+              {/* Left Column: Character Image */}
+              <View style={styles.noEventCharCol}>
+                <Image
+                  source={require('../../../assets/images/no-event-character.png')}
+                  style={styles.noEventCharImg}
+                  resizeMode="contain"
+                />
               </View>
-            </View>
 
-            <Text style={styles.noEventTitle}>Create a Contact Category</Text>
-            <Text style={styles.noEventDesc}>
-              Organize your contacts into categories so they’re easier to find and follow up with.
-            </Text>
+              {/* Right Column: Floating Badge + Speech Bubble + Subtitle + Action Button */}
+              <View style={styles.noEventDetailsCol}>
+                {/* Floating Category/Users Badge */}
+                <View style={styles.noEventBadgeContainer}>
+                  <View style={styles.noEventBadge}>
+                    <BrandGradientBackground
+                      id="no_event_badge_grad"
+                      borderRadius={14}
+                      startColor="#8B5CF6"
+                      endColor="#6366F1"
+                    />
+                    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                      {/* Center User */}
+                      <Circle cx="12" cy="7" r="3" stroke="#FFFFFF" strokeWidth={1.8} />
+                      <Path
+                        d="M6 19a6 6 0 0 1 12 0"
+                        stroke="#FFFFFF"
+                        strokeWidth={1.8}
+                        strokeLinecap="round"
+                      />
+                      {/* Left User */}
+                      <Circle cx="5" cy="9" r="2.2" stroke="#E0E7FF" strokeWidth={1.4} opacity={0.85} />
+                      <Path
+                        d="M1.5 19a4 4 0 0 1 4.5 -3.5"
+                        stroke="#E0E7FF"
+                        strokeWidth={1.4}
+                        strokeLinecap="round"
+                        opacity={0.85}
+                      />
+                      {/* Right User */}
+                      <Circle cx="19" cy="9" r="2.2" stroke="#E0E7FF" strokeWidth={1.4} opacity={0.85} />
+                      <Path
+                        d="M22.5 19a4 4 0 0 0 -4.5 -3.5"
+                        stroke="#E0E7FF"
+                        strokeWidth={1.4}
+                        strokeLinecap="round"
+                        opacity={0.85}
+                      />
+                    </Svg>
+                  </View>
+                </View>
 
-            <View style={styles.noEventTip}>
-              <LightbulbIcon />
-              <View style={styles.noEventTipTextWrap}>
-                <Text style={styles.noEventTipTitle}>Quick tip</Text>
-                <Text style={styles.noEventTipText}>
-                  Name each category after the place where you met those contacts to find them easily later.
+                {/* Speech Bubble Container */}
+                <View style={styles.noEventSpeechBubble}>
+                  {/* Left pointing speech bubble pointer tail */}
+                  <View style={styles.speechBubblePointer}>
+                    <Svg width={12} height={14} viewBox="0 0 12 14" fill="none">
+                      <Path d="M12 0 L0 7 L12 14 Z" fill="#100E26" />
+                      <Path d="M12 0 L0 7 L12 14" stroke="rgba(255, 255, 255, 0.42)" strokeWidth={1.5} />
+                    </Svg>
+                  </View>
+
+                  <Text style={styles.noEventBubbleTitleWhite}>Create a contact</Text>
+                  <Text style={styles.noEventBubbleTitleWhite}>category to</Text>
+                  <Text style={styles.noEventBubbleTitlePurple}>get started?</Text>
+                </View>
+
+                {/* Subtitle */}
+                <Text style={styles.noEventSubtitle}>
+                  Organize your contacts, capture new leads, and follow up easily—all in one place.
                 </Text>
+
+                {/* Create Category Button */}
+                <TouchableOpacity
+                  style={styles.noEventActionBtn}
+                  onPress={() => {
+                    setIsNoEventModalVisible(false);
+                    if (navigation) {
+                      navigation.navigate('NewEvent', {
+                        onEventCreated: created => {
+                          setEvents(prev => [created, ...prev]);
+                          setSelectedEvent(created);
+                          setIsNoEventModalVisible(false);
+                        },
+                      });
+                    } else {
+                      setIsNewEventModalVisible(true);
+                    }
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <BrandGradientBackground
+                    id="no_event_btn_grad"
+                    borderRadius={22}
+                    startColor="#4F46E5"
+                    endColor="#A855F7"
+                  />
+                  <Svg width={18} height={18} viewBox="0 0 18 18" fill="none" style={styles.noEventBtnIcon}>
+                    <Rect x={1} y={1} width={16} height={16} rx={4} stroke="#FFFFFF" strokeWidth={1.6} />
+                    <Path d="M9 5v8M5 9h8" stroke="#FFFFFF" strokeWidth={1.8} strokeLinecap="round" />
+                  </Svg>
+                  <Text style={styles.noEventActionBtnText}>Create Category</Text>
+                </TouchableOpacity>
               </View>
             </View>
-
-            <TouchableOpacity
-              style={styles.noEventCreateBtn}
-              onPress={() => {
-                setIsNoEventModalVisible(false);
-                if (navigation) {
-                  navigation.navigate('NewEvent', {
-                    onEventCreated: created => {
-                      setEvents(prev => [created, ...prev]);
-                      setSelectedEvent(created);
-                      setIsNoEventModalVisible(false);
-                    },
-                  });
-                } else {
-                  setIsNewEventModalVisible(true);
-                }
-              }}
-              activeOpacity={0.85}
-            >
-              <BrandGradientBackground id="no_event_btn_grad" borderRadius={14} />
-              <PlusIcon size={16} color="#FFFFFF" />
-              <Text style={styles.noEventCreateBtnText}>Create Contact Category</Text>
-            </TouchableOpacity>
-
           </View>
         </TouchableOpacity>
       </Modal>
@@ -4259,7 +4226,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
 const styles = StyleSheet.create({
   guideOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(4, 5, 15, 0.78)',
+    backgroundColor: '#0B0A1F',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -4411,11 +4378,27 @@ const styles = StyleSheet.create({
     borderColor: '#302B4C',
     backgroundColor: '#15132D',
   },
+  infoHeaderActionBtn: {
+    position: 'relative',
+    borderColor: 'transparent',
+  },
   infoActionContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
+  },
+  infoBorderGlow: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#C4B5FD',
+    shadowColor: '#A855F7',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 11,
+    elevation: 8,
+    zIndex: 3,
   },
   headerActionText: {
     color: '#E7D9FF',
@@ -4821,137 +4804,137 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.medium,
     marginLeft: 4,
   },
-  noEventModalCard: {
-    backgroundColor: '#16172B',
-    borderRadius: 20,
-    padding: 18,
-    width: '86%',
-    maxWidth: 340,
-    borderWidth: 1,
-    borderColor: '#2E304F',
-    alignItems: 'center',
-    alignSelf: 'center',
-    position: 'relative',
+  noEventModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    justifyContent: 'flex-end',
   },
-  noEventCloseBtn: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#20223D',
+  noEventBottomCard: {
+    backgroundColor: '#0B0717',
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderWidth: 1,
+    borderColor: 'rgba(192, 132, 252, 0.34)',
+    borderBottomWidth: 0,
+    paddingTop: 18,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 20,
+    paddingHorizontal: 16,
+    width: '100%',
+    position: 'relative',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.48,
+    shadowRadius: 22,
+    elevation: 18,
+  },
+  noEventContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    minHeight: 315,
+    gap: 12,
+  },
+  noEventCharCol: {
+    width: '38%',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  noEventIconWrap: {
-    width: 48,
+  noEventCharImg: {
+    width: '100%',
+    height: 300,
+    alignSelf: 'center',
+    transform: [{ scale: 1.2 }],
+  },
+  noEventDetailsCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  noEventBadgeContainer: {
+    alignItems: 'flex-start',
+    paddingLeft: 18,
+    marginBottom: -15,
+    zIndex: 5,
+  },
+  noEventBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.65,
+    shadowRadius: 10,
+    elevation: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  noEventSpeechBubble: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.58)',
+    borderRadius: 28,
+    backgroundColor: '#0D091C',
+    paddingTop: 18,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    alignItems: 'flex-start',
+    position: 'relative',
+    width: '100%',
+  },
+  speechBubblePointer: {
+    position: 'absolute',
+    left: -11,
+    top: 34,
+    zIndex: 6,
+  },
+  noEventBubbleTitleWhite: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontFamily: Fonts.family.bold,
+    textAlign: 'left',
+    lineHeight: 24,
+  },
+  noEventBubbleTitlePurple: {
+    color: '#A83FF0',
+    fontSize: 20,
+    fontFamily: Fonts.family.bold,
+    textAlign: 'left',
+    lineHeight: 25,
+  },
+  noEventSubtitle: {
+    color: '#C4B5D9',
+    fontSize: 13,
+    fontFamily: Fonts.family.regular,
+    lineHeight: 17,
+    textAlign: 'left',
+    marginTop: 10,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  noEventActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(168, 85, 247, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-    marginBottom: 10,
-  },
-  noEventCategoryIcon: {
-    width: 25,
-    height: 22,
-    borderWidth: 1.8,
-    borderColor: '#A78BFA',
-    borderRadius: 6,
-    paddingLeft: 7,
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  noEventCategoryDot: {
-    position: 'absolute',
-    left: 3,
-    top: 5,
-    width: 3,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#A78BFA',
-  },
-  noEventCategoryLine: {
-    height: 2,
-    width: 11,
-    borderRadius: 1,
-    backgroundColor: '#A78BFA',
-    marginBottom: 3,
-  },
-  noEventCategoryLineShort: {
-    height: 2,
-    width: 8,
-    borderRadius: 1,
-    backgroundColor: '#A78BFA',
-  },
-  noEventTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontFamily: Fonts.family.bold,
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  noEventDesc: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontFamily: Fonts.family.regular,
-    textAlign: 'center',
-    lineHeight: 17,
-    marginBottom: 12,
-    paddingHorizontal: 6,
-  },
-  noEventTip: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(251, 191, 36, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(251, 191, 36, 0.22)',
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 12,
-  },
-  noEventTipTextWrap: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  noEventTipTitle: {
-    color: '#FDE68A',
-    fontSize: 11,
-    fontFamily: Fonts.family.semiBold,
-    marginBottom: 3,
-  },
-  noEventTipText: {
-    color: '#CBD5E1',
-    fontSize: 10,
-    fontFamily: Fonts.family.regular,
-    lineHeight: 14,
-  },
-  noEventCreateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#4013C7',
-    overflow: 'hidden',
-    paddingVertical: 11,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    width: '100%',
-    marginBottom: 6,
-    shadowColor: '#4013C7',
-    shadowOpacity: 0.4,
+    backgroundColor: '#6366F1',
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.5,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 5,
+    overflow: 'hidden',
+    position: 'relative',
+    width: '100%',
   },
-  noEventCreateBtnText: {
+  noEventBtnIcon: {
+    marginRight: 6,
+  },
+  noEventActionBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontFamily: Fonts.family.semiBold,
-    marginLeft: 8,
+    fontSize: 15,
+    fontFamily: Fonts.family.bold,
+    letterSpacing: 0.2,
   },
   inputCard: {
     backgroundColor: '#1B1C2E',
