@@ -194,7 +194,7 @@ export const ContactsIcon = ({ size = 24, color = Colors.text, focused = false }
       fill={focused ? color : 'none'}
       fillOpacity={focused ? 0.2 : 0}
       stroke={color}
-      strokeWidth={2}
+      strokeWidth={1}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
@@ -406,7 +406,7 @@ export const ProfileCardIcon = ({ size = 24, color = Colors.text }) => (
       height="18"
       rx="4"
       stroke={color}
-      strokeWidth={1.8}
+      strokeWidth={1.5}
     />
     <Circle cx="9" cy="9" r="2.4" stroke={color} strokeWidth={1.7} />
     <Path
@@ -674,7 +674,7 @@ export const HomeIcon = ({ size = 24, color = Colors.text }) => (
     <Path
       d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V10Z"
       stroke={color}
-      strokeWidth={2}
+      strokeWidth={1}
       strokeLinecap="round"
       strokeLinejoin="round"
     />

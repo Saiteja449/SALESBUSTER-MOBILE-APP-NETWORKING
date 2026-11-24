@@ -152,13 +152,14 @@ export const appendWhatsAppWatermark = (text = '') => {
 };
 
 export const eventService = {
-  async analyzeVoiceAudio(token, { audioUri, eventName }) {
+  async analyzeVoiceAudio(token, { audioUri, eventName, purpose }) {
     const activeToken = await resolveToken(token);
     if (!activeToken)
       throw new Error('Authentication token required. Please log in.');
     if (!audioUri) throw new Error('Audio recording file is required.');
     const formData = new FormData();
     if (eventName) formData.append('eventName', eventName);
+    if (purpose) formData.append('purpose', purpose);
     const cleanUri = audioUri.startsWith('file://')
       ? audioUri
       : `file://${audioUri}`;

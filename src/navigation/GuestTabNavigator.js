@@ -99,7 +99,7 @@ const SmoothGuestTabBar = ({ state, descriptors, navigation }) => {
             },
           ]}
         >
-          <ActiveIcon size={26} color="#A879FF" focused />
+          <ActiveIcon size={24} color="#A879FF" focused />
           <Text numberOfLines={1} style={styles.activeLabel}>
             {activeTab.label}
           </Text>

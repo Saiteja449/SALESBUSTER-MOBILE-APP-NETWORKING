@@ -38,12 +38,6 @@ import {
   PlayIcon,
   XIcon,
 } from '../../icons/Icons';
-import {
-  extractName,
-  extractCompanyName,
-  extractDesignation,
-  extractCity,
-} from '../../utils/voiceEntityExtractor';
 
 const { GeminiVoiceAudioModule } = NativeModules;
 
@@ -155,7 +149,6 @@ export default function SpeechRegistrationScreen({
   const [voiceCountdown, setVoiceCountdown] = useState(null);
   const [voiceRecordingSeconds, setVoiceRecordingSeconds] = useState(0);
   const [isCountdownBeepPlaying, setIsCountdownBeepPlaying] = useState(false);
-  const [rawTranscript, setRawTranscript] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -243,66 +236,14 @@ export default function SpeechRegistrationScreen({
     }
   }, [navigation]);
 
-  // Process live transcript and extract entities
-  const handleTranscript = useCallback(
-    spokenText => {
-      if (!spokenText || typeof spokenText !== 'string') return;
-      setRawTranscript(spokenText);
-
-      // 1. Name
-      const extractedName = extractName(spokenText);
-      if (extractedName && (!name || name.trim().length === 0)) {
-        setName(extractedName);
-      }
-
-      // 2. Company Name
-      const extractedCompany = extractCompanyName(spokenText);
-      if (
-        extractedCompany &&
-        (!companyName || companyName.trim().length === 0)
-      ) {
-        setCompanyName(extractedCompany);
-      }
-
-      // 3. Role / Designation
-      const extractedRole = extractDesignation(spokenText);
-      if (extractedRole && (!role || role.trim().length === 0)) {
-        setRole(extractedRole);
-      }
-
-      // 4. City
-      const extractedCity = extractCity(spokenText);
-      if (extractedCity && (!city || city.trim().length === 0)) {
-        setCity(extractedCity);
-      }
-    },
-    [name, companyName, role, city],
-  );
-
-  // Initialize Gemini Live Voice Hook
+  // Capture locally; the completed audio file is analyzed by the backend.
   const liveVoice = useGeminiLiveVoice({
     token: user?.token,
     user,
     silentMode: true,
     isEventCapture: true,
+    recordingOnly: true,
     captureAudioFile: true,
-    onUserTranscript: userText => {
-      handleTranscript(userText);
-    },
-    onContactInterim: contactData => {
-      if (contactData?.name && !name) setName(contactData.name);
-      if (contactData?.companyName && !companyName)
-        setCompanyName(contactData.companyName);
-      if (contactData?.designation && !role) setRole(contactData.designation);
-    },
-    onConversationCompleted: completedData => {
-      const extracted =
-        completedData?.extractedContact || completedData?.contact || {};
-      if (extracted.name && !name) setName(extracted.name);
-      if (extracted.companyName && !companyName)
-        setCompanyName(extracted.companyName);
-      if (extracted.designation && !role) setRole(extracted.designation);
-    },
     onSessionEnd: ({ audioCaptureInfo }) => {
       if (keepAudioForAnalysisRef.current) {
         audioCaptureInfoRef.current = audioCaptureInfo;
@@ -483,7 +424,6 @@ export default function SpeechRegistrationScreen({
     setVoiceRecordingSeconds(0);
     countdownBeepActiveRef.current = false;
     setIsCountdownBeepPlaying(false);
-    setRawTranscript('');
     setIsVoiceModalVisible(true);
     setIsListening(false);
     setIsVoiceAnalysing(false);
@@ -581,9 +521,14 @@ export default function SpeechRegistrationScreen({
         const analysis = await eventService.analyzeVoiceAudio(token, {
           audioUri: audioCapture.filePath,
           eventName: 'Guest Registration',
+          purpose: 'profile_registration',
         });
         serverExtracted = analysis?.data || {};
         updateAnalysisProgress(68);
+        console.info('[REGISTRATION_VOICE] City result', {
+          cityFound: Boolean(serverExtracted.city),
+          existingCityPresent: Boolean(city.trim()),
+        });
 
         if (serverExtracted.name && (!name || name.trim().length === 0)) {
           setName(serverExtracted.name);
@@ -600,16 +545,12 @@ export default function SpeechRegistrationScreen({
         ) {
           setRole(serverExtracted.designation);
         }
-        if (serverExtracted.originalTranscript) {
-          setRawTranscript(serverExtracted.originalTranscript);
-          const extCity = extractCity(serverExtracted.originalTranscript);
-          if (extCity && (!city || city.trim().length === 0)) {
-            setCity(extCity);
-          }
+        if (serverExtracted.city && (!city || city.trim().length === 0)) {
+          setCity(serverExtracted.city);
         }
       } catch (error) {
         console.warn(
-          '[REGISTRATION_VOICE] Post-stop audio analysis error, using live transcript:',
+          '[REGISTRATION_VOICE] Recorded audio analysis failed:',
           error?.message,
         );
       } finally {
@@ -623,21 +564,10 @@ export default function SpeechRegistrationScreen({
       updateAnalysisProgress(55);
     }
 
-    // Step 4: Supplement with client-side transcript entity extraction
+    // Populate fields only from the backend's recorded-audio response.
     await new Promise(r => setTimeout(r, 450));
     setAnalysisStep(4);
     updateAnalysisProgress(82);
-
-    const extName = extractName(rawTranscript);
-    const extCompany = extractCompanyName(rawTranscript);
-    const extRole = extractDesignation(rawTranscript);
-    const extCity = extractCity(rawTranscript);
-
-    if (extName && (!name || name.trim().length === 0)) setName(extName);
-    if (extCompany && (!companyName || companyName.trim().length === 0))
-      setCompanyName(extCompany);
-    if (extRole && (!role || role.trim().length === 0)) setRole(extRole);
-    if (extCity && (!city || city.trim().length === 0)) setCity(extCity);
 
     // Step 5: Complete & all checkmarks green
     await new Promise(r => setTimeout(r, 500));
@@ -765,7 +695,6 @@ export default function SpeechRegistrationScreen({
     setCity('');
     setEmail('');
     setErrorMessage('');
-    setRawTranscript('');
     setIsProfileFormVisible(false);
   };
 
@@ -792,6 +721,7 @@ export default function SpeechRegistrationScreen({
           },
         ]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.progressHeaderSlot}>
@@ -800,7 +730,11 @@ export default function SpeechRegistrationScreen({
           ) : null}
         </View>
 
-        <View style={styles.centeredFlowContent}>
+        <View
+          style={[
+            styles.centeredFlowContent,
+          ]}
+        >
         {/* Top Section */}
         <View style={styles.topSection}>
           <View
@@ -1453,12 +1387,10 @@ export default function SpeechRegistrationScreen({
                   </TouchableOpacity>
                 </View>
 
-                {/* REAL-TIME TRANSCRIPTION BOX */}
+                {/* Recording guidance; fields are extracted after upload. */}
                 <View style={styles.voiceTranscriptionBox}>
                   <Text style={styles.voiceTranscriptionText}>
-                    {rawTranscript.trim().length > 0
-                      ? rawTranscript
-                      : 'Speak clearly and loudly to capture the following details:'}
+                    Speak clearly and include your name, company, role, and city.
                   </Text>
                 </View>
 
@@ -1561,7 +1493,6 @@ const styles = StyleSheet.create({
   centeredFlowContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    transform: [{ translateY: -30 }],
   },
   startScreenScrollContent: {
     justifyContent: 'flex-start',

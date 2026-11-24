@@ -63,12 +63,13 @@ import {
   TrashIcon,
 } from '../../icons/Icons';
 import { useAuth } from '../../context/AuthContext';
-import { eventService, appendWhatsAppWatermark } from '../../services/api/eventService';
+import {
+  eventService,
+  appendWhatsAppWatermark,
+} from '../../services/api/eventService';
 import { useGeminiLiveVoice } from '../../hooks/useGeminiLiveVoice';
 import {
-  parseRealtimeTranscript,
   normalizeExtractedContact,
-  mergeContactData,
   redactPhone,
   polishFieldSpellings,
   isLikelyCompanyName,
@@ -92,7 +93,6 @@ import { getFullMediaUrl } from '../../utils/constants';
 
 const LAST_EVENT_STORAGE_KEY = 'salesbuster_last_selected_event_id';
 const { GeminiVoiceAudioModule } = NativeModules;
-
 
 // Exact acoustic waveform harmonics matching reference design (Image 2)
 const WAVE_BARS_LEFT = [
@@ -302,7 +302,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const [phone, setPhone] = useState('');
   const [summary, setSummary] = useState('');
   const [messageText, setMessageText] = useState('');
-  const [rawTranscript, setRawTranscript] = useState('');
   const [isAnalyzingVoiceAudio, setIsAnalyzingVoiceAudio] = useState(false);
   const [isVoiceAnalysing, setIsVoiceAnalysing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(1);
@@ -450,7 +449,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     },
   });
   const [manualReviewNotice, setManualReviewNotice] = useState(false);
-  const reviewedSessionsRef = useRef(new Set());
 
   // Centralized single-source-of-truth contact field updater
   const updateContactField = useCallback(
@@ -465,6 +463,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       const isManual = source === 'manual';
       const isReset = source === 'reset';
       const isPolish = source === 'polish';
+      const isRecordedAudio = source === 'recorded_audio';
 
       if (currentMeta.isManuallyEdited && !isManual && !isReset && !isPolish) {
         console.log(
@@ -486,7 +485,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
           ? String(value)
           : '';
 
-      if (field === 'name' && !isManual && !isReset) {
+      if (field === 'name' && !isManual && !isReset && !isRecordedAudio) {
         if (!isStrictPersonNameCandidate(cleanValue)) {
           console.log(
             '[CONTACT_CAPTURE] Rejected ambiguous or non-person name:',
@@ -532,7 +531,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       }
 
       // STRICT COMPANY SHIELD: Block corporate brands, legal forms, and company names from entering person name field
-      if (field === 'name' && !isManual && !isReset) {
+      if (field === 'name' && !isManual && !isReset && !isRecordedAudio) {
         const currentCompany = (
           contactDetailsRef.current.companyName?.value ||
           fieldsRef.current.companyName ||
@@ -558,38 +557,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             updateContactField('companyName', cleanValue, source, confidence);
           }
           return false;
-        }
-      }
-
-      // Auto-clean name field if it was previously misassigned with this company name
-      if (field === 'companyName' && cleanValue.trim() && !isReset && !isManual) {
-        const currentName = (
-          contactDetailsRef.current.name?.value ||
-          fieldsRef.current.name ||
-          ''
-        ).trim();
-        const compLower = cleanValue.toLowerCase();
-        if (
-          currentName &&
-          !contactDetailsRef.current.name?.isManuallyEdited &&
-          (currentName.toLowerCase() === compLower ||
-            compLower.includes(currentName.toLowerCase()) ||
-            currentName.toLowerCase().includes(compLower) ||
-            isLikelyCompanyName(currentName))
-        ) {
-          console.warn(
-            `[CONTACT_CAPTURE] Purging misassigned company "${currentName}" from Name field.`,
-          );
-          setName('');
-          fieldsRef.current.name = '';
-          contactDetailsRef.current.name = {
-            value: '',
-            source: 'empty',
-            confidence: 0,
-            isManuallyEdited: false,
-          };
-          setAiDetectedFields(prev => ({ ...prev, name: false }));
-          fieldsRef.current.aiDetectedFields.name = false;
         }
       }
 
@@ -740,7 +707,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const [tourVideoConfig, setTourVideoConfig] = useState(null);
 
   // Helper to determine if product media is video
-  const isProductVideo = (prod) => {
+  const isProductVideo = prod => {
     if (!prod) return false;
     if (prod.videoUrl) return true;
     if (prod.hasVideo) return true;
@@ -755,7 +722,12 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     const fetchShowcase = async () => {
       try {
         const res = await eventService.getShowcaseServices(token);
-        if (isMounted && res?.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (
+          isMounted &&
+          res?.success &&
+          Array.isArray(res.data) &&
+          res.data.length > 0
+        ) {
           setProductsList(res.data);
         }
       } catch (err) {
@@ -882,195 +854,13 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     });
   };
 
-  // 2. Real-time Gemini 3.8 Live Speech Transcription Callback
-  const handleUserTranscript = useCallback(chunkText => {
-    console.log(`[CONTACT_CAPTURE] Raw transcript chunk received:`, chunkText);
-  }, []);
-
-  // 3. Real-time Gemini Live Voice Callbacks (Interim & Final Extraction)
-  const handleContactInterim = useCallback(
-    data => {
-      if (!data) return;
-      console.log(
-        '[CONTACT_CAPTURE] Gemini interim extraction received:',
-        data,
-      );
-      if (data.rawTranscript) setRawTranscript(data.rawTranscript);
-
-      const normalized = normalizeExtractedContact(data, {
-        user,
-        organization: { name: user?.organizationName || 'SalesBuster' },
-      });
-      console.log(
-        '[CONTACT_CAPTURE] Normalized interim extraction:',
-        normalized,
-      );
-
-      const fields = ['name', 'phone', 'companyName', 'designation', 'summary'];
-      for (const f of fields) {
-        if (normalized[f]?.value) {
-          updateContactField(
-            f,
-            normalized[f].value,
-            'ai_interim',
-            normalized[f].confidence,
-          );
-        }
-      }
-
-      if (data.messageText) {
-        setMessageText(data.messageText.trim());
-      }
-    },
-    [user, updateContactField],
-  );
-
-  const handleContactTriggered = useCallback(
-    data => {
-      if (!data) return;
-      console.log('[CONTACT_CAPTURE] Gemini contact triggered received:', data);
-      if (data.rawTranscript) setRawTranscript(data.rawTranscript);
-
-      const normalized = normalizeExtractedContact(data, {
-        user,
-        organization: { name: user?.organizationName || 'SalesBuster' },
-      });
-      console.log(
-        '[CONTACT_CAPTURE] Normalized contact triggered:',
-        normalized,
-      );
-
-      const fields = ['name', 'phone', 'companyName', 'designation', 'summary'];
-      for (const f of fields) {
-        if (normalized[f]?.value) {
-          updateContactField(
-            f,
-            normalized[f].value,
-            'ai_interim',
-            normalized[f].confidence,
-          );
-          fieldsRef.current.isToolSet[
-            f === 'companyName' ? 'company' : f
-          ] = true;
-        }
-      }
-
-      if (data.messageText) {
-        setMessageText(data.messageText.trim());
-      }
-    },
-    [user, updateContactField],
-  );
-
-  // Dedicated completion handler when backend finishes single-person finalization
-  const handleConversationCompleted = useCallback(
-    data => {
-      console.log(
-        '[CONTACT_CAPTURE] Gemini extraction (conversation completed):',
-        data,
-      );
-      const sId = data?.sessionId;
-      if (sId && reviewedSessionsRef.current.has(sId)) {
-        return;
-      }
-      if (sId) reviewedSessionsRef.current.add(sId);
-
-      // 1. Normalize final extraction payload
-      const normalized = normalizeExtractedContact(data, {
-        user,
-        organization: { name: user?.organizationName || 'SalesBuster' },
-      });
-      console.log('[CONTACT_CAPTURE] Normalized final extraction:', normalized);
-
-      // 2. Synchronous merge with current contact state (preserves manual edits)
-      const finalContact = mergeContactData(
-        contactDetailsRef.current,
-        normalized,
-        {
-          source: 'ai_final',
-          context: {
-            user,
-            organization: { name: user?.organizationName || 'SalesBuster' },
-          },
-        },
-      );
-
-      console.log('[CONTACT_CAPTURE] Final merged contact:', {
-        name: finalContact.name?.value,
-        phone: finalContact.phone?.value
-          ? redactPhone(finalContact.phone.value)
-          : '',
-        companyName: finalContact.companyName?.value,
-        designation: finalContact.designation?.value,
-        summary: finalContact.summary?.value
-          ? `${finalContact.summary.value.slice(0, 60)}...`
-          : '',
-      });
-
-      // 3. Update component state and single source of truth ref
-      const fields = ['name', 'phone', 'companyName', 'designation', 'summary'];
-      for (const f of fields) {
-        if (finalContact[f]?.value) {
-          updateContactField(
-            f,
-            finalContact[f].value,
-            finalContact[f].source || 'ai_final',
-            finalContact[f].confidence || 0.95,
-          );
-        }
-      }
-
-      const rawTrans =
-        data?.rawTranscript ||
-        rawTranscript ||
-        liveVoiceRef.current?.liveTranscript ||
-        '';
-      if (rawTrans) setRawTranscript(rawTrans);
-      if (data?.messageText) setMessageText(data.messageText.trim());
-
-      const finalName = (finalContact.name?.value || '').trim();
-      const finalPhone = (finalContact.phone?.value || '')
-        .replace(/\D/g, '')
-        .slice(-10);
-      const isValidPhone =
-        finalPhone.length === 10 && /^[6-9]\d{9}$/.test(finalPhone);
-
-      // Section 8: Name and valid phone are minimum requirements to save; company and designation are optional
-      const isComplete = Boolean(finalName.length >= 2 && isValidPhone);
-
-      if (isComplete && !data?.requiresManualReview) {
-        setManualReviewNotice(false);
-      } else {
-        console.log(
-          '[CONTACT_CAPTURE] Incomplete or requires manual review; populated form without auto-triggering modal',
-          {
-            hasName: Boolean(finalName.length >= 2),
-            isValidPhone,
-            requiresManualReview: Boolean(data?.requiresManualReview),
-          },
-        );
-        setManualReviewNotice(true);
-      }
-    },
-    [
-      user,
-      updateContactField,
-      handleInitiateSaveAndSend,
-      rawTranscript,
-      messageText,
-    ],
-  );
-
   // Initialize Gemini Live Voice Assistant Hook (Silent Background Listener)
   const liveVoice = useGeminiLiveVoice({
     token,
     user,
     silentMode: true,
     isEventCapture: true,
-    onUserTranscript: handleUserTranscript,
-    onContactInterim: handleContactInterim,
-    onContactTriggered: handleContactTriggered,
-    onConversationCompleted: handleConversationCompleted,
+    recordingOnly: true,
     captureAudioFile: true,
     onSessionEnd: ({ audioCaptureInfo }) => {
       if (keepAudioForAnalysisRef.current)
@@ -1085,20 +875,17 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   const liveVoiceRef = useRef(liveVoice);
   liveVoiceRef.current = liveVoice;
 
-  const finishCountdownBeep = useCallback(
-    (resumeListening = true) => {
-      if (!countdownBeepActiveRef.current) return;
-      countdownBeepActiveRef.current = false;
-      setIsCountdownBeepPlaying(false);
-      liveVoiceRef.current?.setMuted?.(muteBeforeCountdownBeepRef.current);
-      if (resumeListening) {
-        setVoiceCountdown(null);
-        setIsListening(true);
-        setVoiceRecordingSeconds(0);
-      }
-    },
-    [],
-  );
+  const finishCountdownBeep = useCallback((resumeListening = true) => {
+    if (!countdownBeepActiveRef.current) return;
+    countdownBeepActiveRef.current = false;
+    setIsCountdownBeepPlaying(false);
+    liveVoiceRef.current?.setMuted?.(muteBeforeCountdownBeepRef.current);
+    if (resumeListening) {
+      setVoiceCountdown(null);
+      setIsListening(true);
+      setVoiceRecordingSeconds(0);
+    }
+  }, []);
 
   // Dynamic recording state: active listening or analysing turns microphone glow from purple to vibrant orange
   const isVoiceActivelyRecording = Boolean(
@@ -1147,62 +934,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
-
-  // Sync display transcript for UI preview
-  useEffect(() => {
-    if (liveVoice.displayTranscript) {
-      setRawTranscript(liveVoice.displayTranscript);
-    }
-  }, [liveVoice.displayTranscript]);
-
-  // Real-time entity extraction from live speech transcript acts as FALLBACK ONLY
-  // Progressively extracts Name, Phone, Company, Designation, and Summary in real-time as speech is transcribed,
-  // without overwriting structured Gemini tool extractions or manually edited fields.
-  useEffect(() => {
-    const textToParse = (
-      liveVoice.displayTranscript ||
-      liveVoice.committedTranscript ||
-      ''
-    ).trim();
-    if (!textToParse) return;
-
-    console.log('[CONTACT_CAPTURE] Raw transcript:', textToParse);
-
-    const currentMeta = contactDetailsRef.current;
-    const currentFields = {
-      name: currentMeta.name.value,
-      phone: currentMeta.phone.value,
-      companyName: currentMeta.companyName.value,
-      designation: currentMeta.designation.value,
-      summary: currentMeta.summary.value,
-      isNameAiDetected: currentMeta.name.source === 'regex_fallback',
-      isPhoneAiDetected: currentMeta.phone.source === 'regex_fallback',
-      isCompanyAiDetected: currentMeta.companyName.source === 'regex_fallback',
-      isDesignationAiDetected:
-        currentMeta.designation.source === 'regex_fallback',
-      isSummaryAiDetected: currentMeta.summary.source === 'regex_fallback',
-    };
-
-    const updates = parseRealtimeTranscript(textToParse, {
-      user,
-      organization: { name: user?.organizationName || 'SalesBuster' },
-      currentFields,
-    });
-
-    // Fallback: only update fields that are currently empty or previous regex fallback
-    for (const [field, val] of Object.entries(updates)) {
-      if (!val) continue;
-      const meta = currentMeta[field];
-      if (!meta || !meta.value || meta.source === 'regex_fallback') {
-        updateContactField(field, val, 'regex_fallback', 0.8);
-      }
-    }
-  }, [
-    liveVoice.displayTranscript,
-    liveVoice.committedTranscript,
-    user,
-    updateContactField,
-  ]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -1345,7 +1076,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  // Gracefully stop active voice session and apply post-capture analysis & polish
+  // Stop capture and populate fields only from the recorded audio analysis response.
   const stopVoiceCapture = async (showAnalysingStatus = false) => {
     setIsListening(false);
     audioCaptureInfoRef.current = null;
@@ -1397,6 +1128,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         const normalized = normalizeExtractedContact(extracted, {
           user,
           organization: { name: user?.organizationName || 'SalesBuster' },
+          trustRecordedAudioName: true,
         });
         for (const field of [
           'name',
@@ -1409,13 +1141,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             updateContactField(
               field,
               normalized[field].value,
-              'ai_final',
+              'recorded_audio',
               0.98,
             );
           }
         }
-        if (extracted.originalTranscript)
-          setRawTranscript(extracted.originalTranscript);
       } catch (error) {
         analysisFailed = true;
         console.error(
@@ -1425,7 +1155,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         showGuestAlert(
           'Voice Analysis',
           error?.response?.data?.message ||
-            'Could not analyze the recording. The live-captured details are still available.',
+            'Could not analyze the recording. Your existing field values were kept.',
         );
       } finally {
         setIsAnalyzingVoiceAudio(false);
@@ -1438,56 +1168,12 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         updateAnalysisProgress(90);
       }
     } else if (showAnalysingStatus) {
-      // Audio file not present; use live/interim transcript data
-      await new Promise(r => setTimeout(r, 450));
-      setAnalysisStep(3); // 3. Identifying name, company and designation
-      updateAnalysisProgress(55);
-      await new Promise(r => setTimeout(r, 450));
-      setAnalysisStep(4); // 4. Fetching and populating contact details
-      updateAnalysisProgress(82);
-    }
-
-    // Apply client-side phonetic & spell-check polish on captured fields
-    const currentSnapshot = {
-      name: fieldsRef.current.name || name,
-      companyName: fieldsRef.current.companyName || companyName,
-      designation: fieldsRef.current.designation || designation,
-      summary: fieldsRef.current.summary || summary,
-    };
-    const quickPolished = polishFieldSpellings(currentSnapshot);
-    if (
-      quickPolished.name &&
-      !contactDetailsRef.current.name?.isManuallyEdited
-    ) {
-      updateContactField('name', quickPolished.name, 'polish', 0.95);
-    }
-    if (
-      quickPolished.companyName &&
-      !contactDetailsRef.current.companyName?.isManuallyEdited
-    ) {
-      updateContactField(
-        'companyName',
-        quickPolished.companyName,
-        'polish',
-        0.95,
+      analysisFailed = true;
+      updateAnalysisProgress(90);
+      showGuestAlert(
+        'Voice Analysis',
+        'The audio recording was not available. Your existing field values were kept.',
       );
-    }
-    if (
-      quickPolished.designation &&
-      !contactDetailsRef.current.designation?.isManuallyEdited
-    ) {
-      updateContactField(
-        'designation',
-        quickPolished.designation,
-        'polish',
-        0.95,
-      );
-    }
-    if (
-      quickPolished.summary &&
-      !contactDetailsRef.current.summary?.isManuallyEdited
-    ) {
-      updateContactField('summary', quickPolished.summary, 'polish', 0.95);
     }
 
     if (showAnalysingStatus) {
@@ -1509,7 +1195,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     }
   };
 
-  // Open Voice Capture Modal & Start Gemini Live Voice Capture
+  // Open local audio capture; Gemini analyzes the completed recording afterward.
   const handleOpenVoiceCapture = async () => {
     const visibleFieldValues = {
       name,
@@ -1680,7 +1366,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         {
           title: 'Camera Access for Attendee Capture',
           message:
-            'SalesBuster needs camera access so you can take contact selfies and photograph business cards to attach to your contact categories. Photos are stored securely in your workspace and never shared without your permission.',
+            'SalesBuster needs camera access so you can take contact selfies and photograph business cards to attach to your contact Folder. Photos are stored securely in your workspace and never shared without your permission.',
           buttonPositive: 'Allow',
           buttonNegative: 'Not Now',
         },
@@ -1731,7 +1417,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     setDesignation('');
     setSummary('');
     setMessageText('');
-    setRawTranscript('');
     setSelfiePhoto(null);
     setIsVoiceModalVisible(false);
     setManualReviewNotice(false);
@@ -2083,7 +1768,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
     setPhone('');
     setSummary('');
     setMessageText('');
-    setRawTranscript('');
     setSelfiePhoto(null);
     setAiDetectedFields({
       name: false,
@@ -2185,7 +1869,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       companyName: contactDetailsRef.current.companyName?.value || companyName,
       designation: contactDetailsRef.current.designation?.value || designation,
       summary: contactDetailsRef.current.summary?.value || summary,
-      rawTranscript: rawTranscript || liveVoice.liveTranscript || '',
       messageText: messageText,
     };
 
@@ -2202,10 +1885,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       cleanPhone = cleanPhone.slice(1);
 
     if (!cleanPhone) {
-      showGuestAlert(
-        'Required Field',
-        'Please enter visitor mobile number.',
-      );
+      showGuestAlert('Required Field', 'Please enter visitor mobile number.');
       return;
     }
 
@@ -2226,11 +1906,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       return;
     }
 
-    const activeTranscript =
-      contactData.rawTranscript ||
-      rawTranscript ||
-      liveVoice.liveTranscript ||
-      '';
     const eventTemplate = (
       selectedEvent?.whatsappTemplate ||
       selectedEvent?.description ||
@@ -2293,7 +1968,8 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
 
     // Find the event file if one exists (any file type: PDF, Doc, Image, etc.)
     const eventAttachment =
-      Array.isArray(selectedEvent?.attachments) && selectedEvent.attachments.length > 0
+      Array.isArray(selectedEvent?.attachments) &&
+      selectedEvent.attachments.length > 0
         ? selectedEvent.attachments[0]
         : null;
 
@@ -2320,7 +1996,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         {
           companyName: senderCompany,
           fileName: eventAttachment?.name || '',
-        }
+        },
       );
     }
     messageWithFileLink = appendWhatsAppWatermark(messageWithFileLink);
@@ -2352,7 +2028,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       companyName: (contactData.companyName || '').trim(),
       designation: (contactData.designation || '').trim(),
       summary: (contactData.summary || '').trim(),
-      transcript: activeTranscript,
       attachments,
       isSelfieAttached,
       sharableFileLink,
@@ -2395,7 +2070,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
           designation: pendingLeadData.designation,
           summary: pendingLeadData.summary,
           messageText: finalMessage,
-          transcript: pendingLeadData.transcript,
           attachments: pendingLeadData.attachments,
           status: 'captured',
         },
@@ -2504,12 +2178,14 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
   // Create New Event
   const handleCreateEvent = async () => {
     if (!newEventName.trim()) {
-      showGuestAlert('Required', 'Please enter a contact category name.');
+      showGuestAlert('Required', 'Please enter a contact Folder name.');
       return;
     }
     setCreatingEvent(true);
     try {
-      const templateToSave = newEventDesc.trim() || `Hi {there name}! Great meeting you.\n\n${DEFAULT_CUSTOM_WHATSAPP_MESSAGE}`;
+      const templateToSave =
+        newEventDesc.trim() ||
+        `Hi {there name}! Great meeting you.\n\n${DEFAULT_CUSTOM_WHATSAPP_MESSAGE}`;
       const res = await eventService.createEvent(token, {
         name: newEventName.trim(),
         venue: newEventLocation.trim() || 'Venue',
@@ -2528,14 +2204,14 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         setNewEventName('');
         setNewEventLocation('');
         setNewEventDesc('');
-        showGuestAlert('Success', `Contact category "${res.data.name}" created!`);
+        showGuestAlert('Success', `Contact Folder "${res.data.name}" created!`);
       }
     } catch (err) {
       showGuestAlert(
-        'Unable to Create Contact Category',
+        'Unable to Create Contact Folder',
         getFriendlyErrorMessage(
           err,
-          'Failed to create contact category. Please check the details and try again.',
+          'Failed to create contact Folder. Please check the details and try again.',
         ),
       );
     } finally {
@@ -2594,7 +2270,10 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               >
                 <Animated.View
                   pointerEvents="none"
-                  style={[styles.infoGlowAuraOuter, { opacity: infoAuraOpacity }]}
+                  style={[
+                    styles.infoGlowAuraOuter,
+                    { opacity: infoAuraOpacity },
+                  ]}
                 />
                 <Animated.View
                   pointerEvents="none"
@@ -2602,11 +2281,17 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 />
                 <Animated.View
                   pointerEvents="none"
-                  style={[styles.infoGlowAuraInner, { opacity: infoAuraOpacity }]}
+                  style={[
+                    styles.infoGlowAuraInner,
+                    { opacity: infoAuraOpacity },
+                  ]}
                 />
                 <Animated.View
                   pointerEvents="none"
-                  style={[styles.infoNeonBorder, { opacity: infoBorderOpacity }]}
+                  style={[
+                    styles.infoNeonBorder,
+                    { opacity: infoBorderOpacity },
+                  ]}
                 />
                 <View style={styles.infoActionContent}>
                   <ExactInfoIcon size={16} color="#FFFFFF" />
@@ -2624,7 +2309,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             </View>
           </View>
 
-          {/* 2. CONTACT CATEGORY */}
+          {/* 2. CONTACT Folder */}
           <View style={styles.eventHeader}>
             <View style={styles.eventTitleContainer}>
               <TouchableOpacity
@@ -2638,10 +2323,10 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 }}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel="Choose contact category"
+                accessibilityLabel="Choose contact Folder"
               >
                 <Text style={styles.eventTitle} numberOfLines={1}>
-                  {selectedEvent?.name || 'Add a contact category'}
+                  {selectedEvent?.name || 'Add a contact Folder'}
                 </Text>
                 <View style={styles.dropdownCircle}>
                   <ChevronDownIcon size={22} color="#CBD5E1" />
@@ -2666,11 +2351,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 }}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel="Add new contact category"
+                accessibilityLabel="Add new contact Folder"
               >
                 <PlusIcon size={13} color="#C4B5FD" />
                 <Text style={styles.categoryPromptButtonText}>
-                  Add new contact category
+                  Add new contact Folder
                 </Text>
               </TouchableOpacity>
             ) : null}
@@ -2755,9 +2440,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
           )}
 
           {/* 4. FORM INPUT FIELDS */}
-          <View
-            style={styles.formSection}
-          >
+          <View style={styles.formSection}>
             {/* Name */}
             <View
               style={styles.inputCard}
@@ -2895,7 +2578,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 placeholder="Discussion summary"
                 placeholderTextColor="#64748B"
                 multiline
-                numberOfLines={4}
+                numberOfLines={3}
                 textAlignVertical="top"
                 value={summary}
                 onChangeText={val => {
@@ -2997,7 +2680,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               )}
             </TouchableOpacity>
           </View>
-
         </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
 
@@ -3028,7 +2710,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               <View style={styles.sheetHeaderTextContainer}>
                 <Text style={styles.sheetTitle}>Contact Categories</Text>
                 <Text style={styles.sheetSubtitle}>
-                  Choose the category for the contacts you’re capturing.
+                  Choose the Folder for the contacts you’re capturing.
                 </Text>
               </View>
               <TouchableOpacity
@@ -3047,11 +2729,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                   <LocationPinIcon size={28} color="#A78BFA" />
                 </View>
                 <Text style={styles.emptyEventsTitle}>
-                  Add a contact category to get started
+                  Add a contact Folder to get started
                 </Text>
                 <Text style={styles.emptyEventsSubtitle}>
-                  Create your first contact category to start saving contacts
-                  and business cards.
+                  Create your first contact Folder to start saving contacts and
+                  business cards.
                 </Text>
               </View>
             ) : (
@@ -3131,7 +2813,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               </ScrollView>
             )}
 
-            {/* Bottom Dashed Action: + New Contact Category */}
+            {/* Bottom Dashed Action: + New Contact Folder */}
             <TouchableOpacity
               style={styles.sheetNewEventBtn}
               onPress={() => {
@@ -3146,7 +2828,9 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               activeOpacity={0.8}
             >
               <PlusIcon size={16} color="#A78BFA" />
-              <Text style={styles.sheetNewEventBtnText}>New Contact Category</Text>
+              <Text style={styles.sheetNewEventBtnText}>
+                New Contact Folder
+              </Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -3158,7 +2842,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
       <Modal
         visible={Boolean(isNoEventModalVisible && !isTourModalVisible)}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setIsNoEventModalVisible(false)}
       >
         <TouchableOpacity
@@ -3170,110 +2854,69 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             style={styles.noEventBottomCard}
             onStartShouldSetResponder={() => true}
           >
-            <View style={styles.noEventContentRow}>
-              {/* Left Column: Character Image */}
-              <View style={styles.noEventCharCol}>
-                <Image
-                  source={require('../../../assets/images/no-event-character.png')}
-                  style={styles.noEventCharImg}
-                  resizeMode="contain"
+            <View style={styles.noEventPopupContent}>
+              <Image
+                source={require('../../../assets/images/contact-capture-no-badge.png')}
+                style={styles.noEventPopupImage}
+                resizeMode="contain"
+                accessibilityLabel="Contacts organized into a folder"
+              />
+              <Text style={styles.noEventPopupTitle}>
+                Create contact folder
+              </Text>
+              <Text style={styles.noEventPopupSubtitle} numberOfLines={2}>
+                Organize contacts and capture new leads, all in one place.
+              </Text>
+              {/* Create folder button */}
+              <TouchableOpacity
+                style={styles.noEventActionBtn}
+                onPress={() => {
+                  setIsNoEventModalVisible(false);
+                  if (navigation) {
+                    navigation.navigate('NewEvent', {
+                      onEventCreated: created => {
+                        setEvents(prev => [created, ...prev]);
+                        setSelectedEvent(created);
+                        setIsNoEventModalVisible(false);
+                      },
+                    });
+                  } else {
+                    setIsNewEventModalVisible(true);
+                  }
+                }}
+                activeOpacity={0.85}
+              >
+                <BrandGradientBackground
+                  id="no_event_btn_grad"
+                  borderRadius={22}
+                  startColor="#4F46E5"
+                  endColor="#A855F7"
                 />
-              </View>
-
-              {/* Right Column: Floating Badge + Speech Bubble + Subtitle + Action Button */}
-              <View style={styles.noEventDetailsCol}>
-                {/* Floating Category/Users Badge */}
-                <View style={styles.noEventBadgeContainer}>
-                  <View style={styles.noEventBadge}>
-                    <BrandGradientBackground
-                      id="no_event_badge_grad"
-                      borderRadius={14}
-                      startColor="#8B5CF6"
-                      endColor="#6366F1"
-                    />
-                    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                      {/* Center User */}
-                      <Circle cx="12" cy="7" r="3" stroke="#FFFFFF" strokeWidth={1.8} />
-                      <Path
-                        d="M6 19a6 6 0 0 1 12 0"
-                        stroke="#FFFFFF"
-                        strokeWidth={1.8}
-                        strokeLinecap="round"
-                      />
-                      {/* Left User */}
-                      <Circle cx="5" cy="9" r="2.2" stroke="#E0E7FF" strokeWidth={1.4} opacity={0.85} />
-                      <Path
-                        d="M1.5 19a4 4 0 0 1 4.5 -3.5"
-                        stroke="#E0E7FF"
-                        strokeWidth={1.4}
-                        strokeLinecap="round"
-                        opacity={0.85}
-                      />
-                      {/* Right User */}
-                      <Circle cx="19" cy="9" r="2.2" stroke="#E0E7FF" strokeWidth={1.4} opacity={0.85} />
-                      <Path
-                        d="M22.5 19a4 4 0 0 0 -4.5 -3.5"
-                        stroke="#E0E7FF"
-                        strokeWidth={1.4}
-                        strokeLinecap="round"
-                        opacity={0.85}
-                      />
-                    </Svg>
-                  </View>
-                </View>
-
-                {/* Speech Bubble Container */}
-                <View style={styles.noEventSpeechBubble}>
-                  {/* Left pointing speech bubble pointer tail */}
-                  <View style={styles.speechBubblePointer}>
-                    <Svg width={12} height={14} viewBox="0 0 12 14" fill="none">
-                      <Path d="M12 0 L0 7 L12 14 Z" fill="#100E26" />
-                      <Path d="M12 0 L0 7 L12 14" stroke="rgba(255, 255, 255, 0.42)" strokeWidth={1.5} />
-                    </Svg>
-                  </View>
-
-                  <Text style={styles.noEventBubbleTitleWhite}>Create a contact</Text>
-                  <Text style={styles.noEventBubbleTitleWhite}>category to</Text>
-                  <Text style={styles.noEventBubbleTitlePurple}>get started?</Text>
-                </View>
-
-                {/* Subtitle */}
-                <Text style={styles.noEventSubtitle}>
-                  Organize your contacts, capture new leads, and follow up easily—all in one place.
-                </Text>
-
-                {/* Create Category Button */}
-                <TouchableOpacity
-                  style={styles.noEventActionBtn}
-                  onPress={() => {
-                    setIsNoEventModalVisible(false);
-                    if (navigation) {
-                      navigation.navigate('NewEvent', {
-                        onEventCreated: created => {
-                          setEvents(prev => [created, ...prev]);
-                          setSelectedEvent(created);
-                          setIsNoEventModalVisible(false);
-                        },
-                      });
-                    } else {
-                      setIsNewEventModalVisible(true);
-                    }
-                  }}
-                  activeOpacity={0.85}
+                <Svg
+                  width={18}
+                  height={18}
+                  viewBox="0 0 18 18"
+                  fill="none"
+                  style={styles.noEventBtnIcon}
                 >
-                  <BrandGradientBackground
-                    id="no_event_btn_grad"
-                    borderRadius={22}
-                    startColor="#4F46E5"
-                    endColor="#A855F7"
+                  <Rect
+                    x={1}
+                    y={1}
+                    width={16}
+                    height={16}
+                    rx={4}
+                    stroke="#FFFFFF"
+                    strokeWidth={1.6}
                   />
-                  <Svg width={18} height={18} viewBox="0 0 18 18" fill="none" style={styles.noEventBtnIcon}>
-                    <Rect x={1} y={1} width={16} height={16} rx={4} stroke="#FFFFFF" strokeWidth={1.6} />
-                    <Path d="M9 5v8M5 9h8" stroke="#FFFFFF" strokeWidth={1.8} strokeLinecap="round" />
-                  </Svg>
-                  <Text style={styles.noEventActionBtnText}>Create Category</Text>
-                </TouchableOpacity>
-              </View>
+                  <Path
+                    d="M9 5v8M5 9h8"
+                    stroke="#FFFFFF"
+                    strokeWidth={1.8}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+                <Text style={styles.noEventActionBtnText}>Create folder</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </TouchableOpacity>
@@ -3291,7 +2934,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
         <View style={styles.modalOverlayCentered}>
           <View style={styles.dialogCard}>
             <View style={styles.dialogHeader}>
-              <Text style={styles.dialogTitle}>Create Contact Category</Text>
+              <Text style={styles.dialogTitle}>Create Contact Folder</Text>
               <TouchableOpacity
                 onPress={() => setIsNewEventModalVisible(false)}
               >
@@ -3300,7 +2943,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             </View>
 
             <View style={styles.dialogInputWrap}>
-              <Text style={styles.dialogLabel}>CATEGORY NAME *</Text>
+              <Text style={styles.dialogLabel}>Folder NAME *</Text>
               <TextInput
                 style={styles.dialogInput}
                 placeholder="e.g. Furry Fest, Tech Expo 2026"
@@ -3311,7 +2954,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             </View>
 
             <View style={styles.dialogInputWrap}>
-                <Text style={styles.dialogLabel}>LOCATION / VENUE</Text>
+              <Text style={styles.dialogLabel}>LOCATION / VENUE</Text>
               <TextInput
                 style={styles.dialogInput}
                 placeholder="e.g. Jio World Garden, Mumbai"
@@ -3341,12 +2984,15 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               onPress={handleCreateEvent}
               disabled={creatingEvent}
             >
-              <BrandGradientBackground id="event_dialog_btn_grad" borderRadius={12} />
+              <BrandGradientBackground
+                id="event_dialog_btn_grad"
+                borderRadius={12}
+              />
               {creatingEvent ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <Text style={styles.dialogSubmitBtnText}>
-                  Create & Select Category
+                  Create & Select Folder
                 </Text>
               )}
             </TouchableOpacity>
@@ -3398,7 +3044,10 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               {productsList.map(prod => {
                 const isVideo = isProductVideo(prod);
                 const bannerUri = getFullMediaUrl(
-                  prod.bannerImageUrl || (!isVideo ? prod.imageUrl : '') || prod.imageUrl || prod.mediaUrl
+                  prod.bannerImageUrl ||
+                    (!isVideo ? prod.imageUrl : '') ||
+                    prod.imageUrl ||
+                    prod.mediaUrl,
                 );
                 return (
                   <TouchableOpacity
@@ -3435,9 +3084,10 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                       </Text>
                       <View style={styles.productTagRow}>
                         <View style={styles.productTagPill}>
-                          <Text style={styles.productTagPillText}>{prod.tag}</Text>
+                          <Text style={styles.productTagPillText}>
+                            {prod.tag}
+                          </Text>
                         </View>
-                        
                       </View>
                     </View>
 
@@ -3485,7 +3135,6 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                       {selectedProduct?.tag}
                     </Text>
                   </View>
-                 
                 </View>
               </View>
 
@@ -3502,30 +3151,33 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             {isProductVideo(selectedProduct) ? (
               <InlineVideoPlayer
                 videoUrl={getFullMediaUrl(
-                  selectedProduct?.videoUrl || selectedProduct?.mediaUrl
+                  selectedProduct?.videoUrl || selectedProduct?.mediaUrl,
                 )}
                 posterUrl={getFullMediaUrl(
-                  selectedProduct?.bannerImageUrl || (!isProductVideo(selectedProduct) ? selectedProduct?.imageUrl : '') || selectedProduct?.imageUrl
+                  selectedProduct?.bannerImageUrl ||
+                    (!isProductVideo(selectedProduct)
+                      ? selectedProduct?.imageUrl
+                      : '') ||
+                    selectedProduct?.imageUrl,
                 )}
                 fallbackBg={selectedProduct?.fallbackBg || '#1A1838'}
                 title={selectedProduct?.title || 'Product Video'}
                 containerStyle={styles.videoBannerContainer}
               />
-            ) : (
-              (selectedProduct?.bannerImageUrl || selectedProduct?.imageUrl) ? (
-                <View style={styles.videoBannerContainer}>
-                  <Image
-                    source={{
-                      uri: getFullMediaUrl(
-                        selectedProduct?.bannerImageUrl || selectedProduct?.imageUrl
-                      ),
-                    }}
-                    style={StyleSheet.absoluteFill}
-                    resizeMode="cover"
-                  />
-                </View>
-              ) : null
-            )}
+            ) : selectedProduct?.bannerImageUrl || selectedProduct?.imageUrl ? (
+              <View style={styles.videoBannerContainer}>
+                <Image
+                  source={{
+                    uri: getFullMediaUrl(
+                      selectedProduct?.bannerImageUrl ||
+                        selectedProduct?.imageUrl,
+                    ),
+                  }}
+                  style={StyleSheet.absoluteFill}
+                  resizeMode="cover"
+                />
+              </View>
+            ) : null}
 
             {/* Description */}
             <Text style={styles.detailSheetDescription}>
@@ -3550,7 +3202,10 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
               onPress={handleBookDemo}
               activeOpacity={0.85}
             >
-              <BrandGradientBackground id="modal_book_demo_grad" borderRadius={18} />
+              <BrandGradientBackground
+                id="modal_book_demo_grad"
+                borderRadius={18}
+              />
               <Text style={styles.bookDemoBtnText}>Book a Demo</Text>
             </TouchableOpacity>
           </TouchableOpacity>
@@ -3582,17 +3237,17 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 </Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.accountName}>
-                  {user?.name || 'User'}
-                </Text>
+                <Text style={styles.accountName}>{user?.name || 'User'}</Text>
                 <Text style={styles.accountPhone}>
-                  {user?.phone ? (user.phone.startsWith('+91') ? user.phone : `+91 ${user.phone}`) : 'Guest Account'}
+                  {user?.phone
+                    ? user.phone.startsWith('+91')
+                      ? user.phone
+                      : `+91 ${user.phone}`
+                    : 'Guest Account'}
                 </Text>
                 <View style={styles.accountBadge}>
                   <SparklesIcon size={12} color="#8B5CF6" />
-                  <Text style={styles.accountBadgeText}>
-                    Account Active
-                  </Text>
+                  <Text style={styles.accountBadgeText}>Account Active</Text>
                 </View>
               </View>
             </View>
@@ -3608,7 +3263,9 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 activeOpacity={0.7}
               >
                 <UserIcon size={16} color="#A78BFA" />
-                <Text style={styles.accountMenuItemText}>View Full Profile</Text>
+                <Text style={styles.accountMenuItemText}>
+                  View Full Profile
+                </Text>
                 <ChevronRightIcon size={14} color="#94A3B8" />
               </TouchableOpacity>
 
@@ -3616,7 +3273,9 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 style={styles.accountMenuItem}
                 onPress={() => {
                   setIsAccountModalVisible(false);
-                  Linking.openURL('https://salesbuster.ai/#/privacy').catch(() => {});
+                  Linking.openURL('https://salesbuster.ai/#/privacy').catch(
+                    () => {},
+                  );
                 }}
                 activeOpacity={0.7}
               >
@@ -3632,14 +3291,18 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 style={styles.logoutBtn}
                 onPress={() => {
                   setIsAccountModalVisible(false);
-                  showGuestAlert('Log Out', 'Are you sure you want to log out?', [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Log Out',
-                      style: 'destructive',
-                      onPress: () => logout(),
-                    },
-                  ]);
+                  showGuestAlert(
+                    'Log Out',
+                    'Are you sure you want to log out?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Log Out',
+                        style: 'destructive',
+                        onPress: () => logout(),
+                      },
+                    ],
+                  );
                 }}
               >
                 <LogoutIcon size={16} color="#A78BFA" />
@@ -3660,12 +3323,14 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                         style: 'destructive',
                         onPress: () => logout(),
                       },
-                    ]
+                    ],
                   );
                 }}
               >
                 <TrashIcon size={16} color="#EF4444" />
-                <Text style={styles.deleteAccountDialogBtnText}>Delete Account</Text>
+                <Text style={styles.deleteAccountDialogBtnText}>
+                  Delete Account
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -3701,7 +3366,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 <View>
                   <Text style={styles.confirmModalTitle}>Confirm & Send</Text>
                   <Text style={styles.confirmModalSubtitle}>
-                    WhatsApp message for category: {selectedEvent?.name}
+                    WhatsApp message for Folder: {selectedEvent?.name}
                   </Text>
                 </View>
               </View>
@@ -3742,7 +3407,7 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                   <Text style={styles.confirmSectionTitle}>
                     WhatsApp Message Template
                   </Text>
-                  <Text style={styles.confirmSectionBadge}>Category Message</Text>
+                  <Text style={styles.confirmSectionBadge}>Folder Message</Text>
                 </View>
                 <TextInput
                   style={styles.confirmMessageInput}
@@ -3834,7 +3499,10 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                 {submitting ? (
                   <View style={styles.confirmProceedBtnContent}>
                     <ActivityIndicator color="#FFFFFF" size="small" />
-                    <Text style={styles.confirmProceedBtnText} numberOfLines={1}>
+                    <Text
+                      style={styles.confirmProceedBtnText}
+                      numberOfLines={1}
+                    >
                       {submittingStatus || 'Opening WhatsApp...'}
                     </Text>
                   </View>
@@ -3887,260 +3555,258 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
             {/* Hide the entire microphone visual while the analysis card is active. */}
             {!isVoiceAnalysing && (
               <View style={styles.voiceModalMicArea}>
-              {/* Waveform bars are hidden during analysis; the progress bar shows progress. */}
-              {!isVoiceAnalysing && (
-                <View style={styles.voiceModalWaveGroupLeft}>
-                  {WAVE_BARS_LEFT.map((bar, idx) => (
-                    <Animated.View
-                      key={`vl-${idx}`}
-                      style={[
-                        styles.modalWaveBar,
-                        {
-                          height: bar.h,
-                          opacity: bar.o,
-                          transform: [
-                            {
-                              scaleY:
-                                (isListening && !liveVoice?.isPaused) ||
-                                isVoiceAnalysing
-                                  ? idx % 2 === 0
-                                    ? waveAnim1
-                                    : waveAnim2
-                                  : 1,
-                            },
-                          ],
-                        },
-                      ]}
-                    />
-                  ))}
-                </View>
-              )}
+                {/* Waveform bars are hidden during analysis; the progress bar shows progress. */}
+                {!isVoiceAnalysing && (
+                  <View style={styles.voiceModalWaveGroupLeft}>
+                    {WAVE_BARS_LEFT.map((bar, idx) => (
+                      <Animated.View
+                        key={`vl-${idx}`}
+                        style={[
+                          styles.modalWaveBar,
+                          {
+                            height: bar.h,
+                            opacity: bar.o,
+                            transform: [
+                              {
+                                scaleY:
+                                  (isListening && !liveVoice?.isPaused) ||
+                                  isVoiceAnalysing
+                                    ? idx % 2 === 0
+                                      ? waveAnim1
+                                      : waveAnim2
+                                    : 1,
+                              },
+                            ],
+                          },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
 
-              {/* Center Mic Button & Glowing Concentric Aura */}
-              <View style={styles.voiceModalMicCenter}>
-                <Animated.View
-                  style={[
-                    styles.voiceModalMicGlow,
-                    {
-                      opacity: glowAnim,
-                      transform: [
-                        { scale: pulseAnim },
-                        { rotate: spin },
-                      ],
-                    },
-                  ]}
-                  pointerEvents="none"
-                >
-                  {/* Purple Glow & Rings (Idle / Countdown / Paused) */}
+                {/* Center Mic Button & Glowing Concentric Aura */}
+                <View style={styles.voiceModalMicCenter}>
                   <Animated.View
                     style={[
-                      StyleSheet.absoluteFill,
-                      styles.voiceModalGlowLayer,
-                      { opacity: purpleGlowOpacity },
+                      styles.voiceModalMicGlow,
+                      {
+                        opacity: glowAnim,
+                        transform: [{ scale: pulseAnim }, { rotate: spin }],
+                      },
                     ]}
+                    pointerEvents="none"
                   >
-                    <Svg width={190} height={190} viewBox="0 0 190 190">
-                      <Defs>
-                        <RadialGradient
-                          id="voiceModalGlow"
-                          cx="50%"
-                          cy="50%"
-                          rx="50%"
-                          ry="50%"
-                        >
-                          <Stop
-                            offset="0%"
-                            stopColor="#7C3AED"
-                            stopOpacity="0.85"
-                          />
-                          <Stop
-                            offset="35%"
-                            stopColor="#6D28D9"
-                            stopOpacity="0.45"
-                          />
-                          <Stop
-                            offset="65%"
-                            stopColor="#4C1D95"
-                            stopOpacity="0.2"
-                          />
-                          <Stop
-                            offset="100%"
-                            stopColor="#0B0C16"
-                            stopOpacity="0"
-                          />
-                        </RadialGradient>
-                      </Defs>
-                      {/* Glowing background gradient aura */}
-                      <Circle
-                        cx="95"
-                        cy="95"
-                        r="92"
-                        fill="url(#voiceModalGlow)"
-                      />
-                      {/* Concentric aura ripple rings matching Image 2 */}
-                      <Circle
-                        cx="95"
-                        cy="95"
-                        r="48"
-                        stroke="rgba(196, 181, 253, 0.45)"
-                        strokeWidth="1.2"
-                        fill="none"
-                      />
-                      <Circle
-                        cx="95"
-                        cy="95"
-                        r="62"
-                        stroke="rgba(167, 139, 250, 0.32)"
-                        strokeWidth="1.2"
-                        fill="none"
-                      />
-                      <Circle
-                        cx="95"
-                        cy="95"
-                        r="76"
-                        stroke="rgba(139, 92, 246, 0.22)"
-                        strokeWidth="1.2"
-                        fill="none"
-                      />
-                      <Circle
-                        cx="95"
-                        cy="95"
-                        r="90"
-                        stroke="rgba(124, 58, 237, 0.12)"
-                        strokeWidth="1.2"
-                        fill="none"
-                      />
-                    </Svg>
+                    {/* Purple Glow & Rings (Idle / Countdown / Paused) */}
+                    <Animated.View
+                      style={[
+                        StyleSheet.absoluteFill,
+                        styles.voiceModalGlowLayer,
+                        { opacity: purpleGlowOpacity },
+                      ]}
+                    >
+                      <Svg width={190} height={190} viewBox="0 0 190 190">
+                        <Defs>
+                          <RadialGradient
+                            id="voiceModalGlow"
+                            cx="50%"
+                            cy="50%"
+                            rx="50%"
+                            ry="50%"
+                          >
+                            <Stop
+                              offset="0%"
+                              stopColor="#7C3AED"
+                              stopOpacity="0.85"
+                            />
+                            <Stop
+                              offset="35%"
+                              stopColor="#6D28D9"
+                              stopOpacity="0.45"
+                            />
+                            <Stop
+                              offset="65%"
+                              stopColor="#4C1D95"
+                              stopOpacity="0.2"
+                            />
+                            <Stop
+                              offset="100%"
+                              stopColor="#0B0C16"
+                              stopOpacity="0"
+                            />
+                          </RadialGradient>
+                        </Defs>
+                        {/* Glowing background gradient aura */}
+                        <Circle
+                          cx="95"
+                          cy="95"
+                          r="92"
+                          fill="url(#voiceModalGlow)"
+                        />
+                        {/* Concentric aura ripple rings matching Image 2 */}
+                        <Circle
+                          cx="95"
+                          cy="95"
+                          r="48"
+                          stroke="rgba(196, 181, 253, 0.45)"
+                          strokeWidth="1.2"
+                          fill="none"
+                        />
+                        <Circle
+                          cx="95"
+                          cy="95"
+                          r="62"
+                          stroke="rgba(167, 139, 250, 0.32)"
+                          strokeWidth="1.2"
+                          fill="none"
+                        />
+                        <Circle
+                          cx="95"
+                          cy="95"
+                          r="76"
+                          stroke="rgba(139, 92, 246, 0.22)"
+                          strokeWidth="1.2"
+                          fill="none"
+                        />
+                        <Circle
+                          cx="95"
+                          cy="95"
+                          r="90"
+                          stroke="rgba(124, 58, 237, 0.12)"
+                          strokeWidth="1.2"
+                          fill="none"
+                        />
+                      </Svg>
+                    </Animated.View>
+
+                    {/* Vibrant Orange Glow & Concentric Rings (Active Recording & Analysing) */}
+                    <Animated.View
+                      style={[
+                        StyleSheet.absoluteFill,
+                        styles.voiceModalGlowLayer,
+                        { opacity: orangeGlowAnim },
+                      ]}
+                    >
+                      <Svg width={190} height={190} viewBox="0 0 190 190">
+                        <Defs>
+                          <RadialGradient
+                            id="voiceModalGlowOrange"
+                            cx="50%"
+                            cy="50%"
+                            rx="50%"
+                            ry="50%"
+                          >
+                            <Stop
+                              offset="0%"
+                              stopColor="#F97316"
+                              stopOpacity="0.85"
+                            />
+                            <Stop
+                              offset="35%"
+                              stopColor="#EA580C"
+                              stopOpacity="0.5"
+                            />
+                            <Stop
+                              offset="65%"
+                              stopColor="#C2410C"
+                              stopOpacity="0.25"
+                            />
+                            <Stop
+                              offset="100%"
+                              stopColor="#0B0C16"
+                              stopOpacity="0"
+                            />
+                          </RadialGradient>
+                        </Defs>
+                        {/* Glowing background gradient aura */}
+                        <Circle
+                          cx="95"
+                          cy="95"
+                          r="92"
+                          fill="url(#voiceModalGlowOrange)"
+                        />
+                        {/* Concentric aura ripple rings with complementary orange shades */}
+                        <Circle
+                          cx="95"
+                          cy="95"
+                          r="48"
+                          stroke="rgba(254, 215, 170, 0.55)"
+                          strokeWidth="1.2"
+                          fill="none"
+                        />
+                        <Circle
+                          cx="95"
+                          cy="95"
+                          r="62"
+                          stroke="rgba(251, 146, 60, 0.40)"
+                          strokeWidth="1.2"
+                          fill="none"
+                        />
+                        <Circle
+                          cx="95"
+                          cy="95"
+                          r="76"
+                          stroke="rgba(249, 115, 22, 0.28)"
+                          strokeWidth="1.2"
+                          fill="none"
+                        />
+                        <Circle
+                          cx="95"
+                          cy="95"
+                          r="90"
+                          stroke="rgba(234, 88, 12, 0.16)"
+                          strokeWidth="1.2"
+                          fill="none"
+                        />
+                      </Svg>
+                    </Animated.View>
                   </Animated.View>
 
-                  {/* Vibrant Orange Glow & Concentric Rings (Active Recording & Analysing) */}
                   <Animated.View
                     style={[
-                      StyleSheet.absoluteFill,
-                      styles.voiceModalGlowLayer,
-                      { opacity: orangeGlowAnim },
+                      styles.voiceModalMicCircle,
+                      isVoiceActivelyRecording &&
+                        styles.voiceModalMicCircleActive,
                     ]}
                   >
-                    <Svg width={190} height={190} viewBox="0 0 190 190">
-                      <Defs>
-                        <RadialGradient
-                          id="voiceModalGlowOrange"
-                          cx="50%"
-                          cy="50%"
-                          rx="50%"
-                          ry="50%"
-                        >
-                          <Stop
-                            offset="0%"
-                            stopColor="#F97316"
-                            stopOpacity="0.85"
-                          />
-                          <Stop
-                            offset="35%"
-                            stopColor="#EA580C"
-                            stopOpacity="0.5"
-                          />
-                          <Stop
-                            offset="65%"
-                            stopColor="#C2410C"
-                            stopOpacity="0.25"
-                          />
-                          <Stop
-                            offset="100%"
-                            stopColor="#0B0C16"
-                            stopOpacity="0"
-                          />
-                        </RadialGradient>
-                      </Defs>
-                      {/* Glowing background gradient aura */}
-                      <Circle
-                        cx="95"
-                        cy="95"
-                        r="92"
-                        fill="url(#voiceModalGlowOrange)"
-                      />
-                      {/* Concentric aura ripple rings with complementary orange shades */}
-                      <Circle
-                        cx="95"
-                        cy="95"
-                        r="48"
-                        stroke="rgba(254, 215, 170, 0.55)"
-                        strokeWidth="1.2"
-                        fill="none"
-                      />
-                      <Circle
-                        cx="95"
-                        cy="95"
-                        r="62"
-                        stroke="rgba(251, 146, 60, 0.40)"
-                        strokeWidth="1.2"
-                        fill="none"
-                      />
-                      <Circle
-                        cx="95"
-                        cy="95"
-                        r="76"
-                        stroke="rgba(249, 115, 22, 0.28)"
-                        strokeWidth="1.2"
-                        fill="none"
-                      />
-                      <Circle
-                        cx="95"
-                        cy="95"
-                        r="90"
-                        stroke="rgba(234, 88, 12, 0.16)"
-                        strokeWidth="1.2"
-                        fill="none"
-                      />
-                    </Svg>
+                    {isVoiceAnalysing ? (
+                      <ActivityIndicator size="small" color="#F97316" />
+                    ) : voiceCountdown !== null ? (
+                      <Text style={styles.countdownNumberText}>
+                        {voiceCountdown}
+                      </Text>
+                    ) : (
+                      <MicIcon size={30} color="#FFFFFF" />
+                    )}
                   </Animated.View>
-                </Animated.View>
-
-                <Animated.View
-                  style={[
-                    styles.voiceModalMicCircle,
-                    isVoiceActivelyRecording && styles.voiceModalMicCircleActive,
-                  ]}
-                >
-                  {isVoiceAnalysing ? (
-                    <ActivityIndicator size="small" color="#F97316" />
-                  ) : voiceCountdown !== null ? (
-                    <Text style={styles.countdownNumberText}>
-                      {voiceCountdown}
-                    </Text>
-                  ) : (
-                    <MicIcon size={30} color="#FFFFFF" />
-                  )}
-                </Animated.View>
-              </View>
-
-              {!isVoiceAnalysing && (
-                <View style={styles.voiceModalWaveGroupRight}>
-                  {WAVE_BARS_RIGHT.map((bar, idx) => (
-                    <Animated.View
-                      key={`vr-${idx}`}
-                      style={[
-                        styles.modalWaveBar,
-                        {
-                          height: bar.h,
-                          opacity: bar.o,
-                          transform: [
-                            {
-                              scaleY:
-                                (isListening && !liveVoice?.isPaused) ||
-                                isVoiceAnalysing
-                                  ? idx % 2 === 0
-                                    ? waveAnim2
-                                    : waveAnim1
-                                  : 1,
-                            },
-                          ],
-                        },
-                      ]}
-                    />
-                  ))}
                 </View>
-              )}
+
+                {!isVoiceAnalysing && (
+                  <View style={styles.voiceModalWaveGroupRight}>
+                    {WAVE_BARS_RIGHT.map((bar, idx) => (
+                      <Animated.View
+                        key={`vr-${idx}`}
+                        style={[
+                          styles.modalWaveBar,
+                          {
+                            height: bar.h,
+                            opacity: bar.o,
+                            transform: [
+                              {
+                                scaleY:
+                                  (isListening && !liveVoice?.isPaused) ||
+                                  isVoiceAnalysing
+                                    ? idx % 2 === 0
+                                      ? waveAnim2
+                                      : waveAnim1
+                                    : 1,
+                              },
+                            ],
+                          },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
               </View>
             )}
 
@@ -4154,14 +3820,17 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                     Analysing Your Conversation
                   </Text>
                   <Text style={styles.analysingSubtitle}>
-                    SalesBuster AI is extracting contact details from your conversation...
+                    SalesBuster AI is extracting contact details from your
+                    conversation...
                   </Text>
                 </View>
 
                 <View style={styles.analysisProgressCard}>
                   <View style={styles.analysisProgressLabels}>
                     <Text style={styles.analysisProgressCaption}>
-                      {analysisProgress >= 100 ? 'Analysis complete' : 'Analysis progress'}
+                      {analysisProgress >= 100
+                        ? 'Analysis complete'
+                        : 'Analysis progress'}
                     </Text>
                     <Text style={styles.analysisProgressPercent}>
                       {analysisProgress}%
@@ -4171,7 +3840,11 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                     style={styles.analysisProgressTrack}
                     accessibilityRole="progressbar"
                     accessibilityLabel="Audio analysis progress"
-                    accessibilityValue={{ min: 0, max: 100, now: analysisProgress }}
+                    accessibilityValue={{
+                      min: 0,
+                      max: 100,
+                      now: analysisProgress,
+                    }}
                   >
                     <Animated.View
                       style={[
@@ -4309,19 +3982,12 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                     onPress={handleFinishVoice}
                     activeOpacity={0.85}
                   >
-                    <BrandGradientBackground id="guest_voice_finish_grad" borderRadius={14} />
+                    <BrandGradientBackground
+                      id="guest_voice_finish_grad"
+                      borderRadius={14}
+                    />
                     <Text style={styles.voiceFinishBtnText}>Finish</Text>
                   </TouchableOpacity>
-                </View>
-
-                {/* REAL-TIME TRANSCRIPTION BOX - POSITIONED DIRECTLY ABOVE INSTRUCTIONS */}
-                <View style={styles.voiceTranscriptionBox}>
-                  <Text style={styles.voiceTranscriptionText} numberOfLines={3}>
-                    {liveVoice.interimTranscript ||
-                      liveVoice.displayTranscript ||
-                      liveVoice.liveTranscript ||
-                      '...'}
-                  </Text>
                 </View>
 
                 {/* INSTRUCTIONS CARD WITH DASHED BORDER (IMAGE 2) */}
@@ -4337,22 +4003,30 @@ export const GuestHomeScreen = ({ navigation, isEmbedded = false }) => {
                     <View style={styles.instructionsItemsRow}>
                       <View style={styles.checkItemWrap}>
                         <CheckIcon size={12} color="#10B981" />
-                        <Text style={styles.instructionCheckItemText}>Name</Text>
+                        <Text style={styles.instructionCheckItemText}>
+                          Name
+                        </Text>
                       </View>
                       <View style={styles.checkItemWrap}>
                         <CheckIcon size={12} color="#10B981" />
-                        <Text style={styles.instructionCheckItemText}>Company</Text>
+                        <Text style={styles.instructionCheckItemText}>
+                          Company
+                        </Text>
                       </View>
                       <View style={styles.checkItemWrap}>
                         <CheckIcon size={12} color="#10B981" />
-                        <Text style={styles.instructionCheckItemText}>Designation</Text>
+                        <Text style={styles.instructionCheckItemText}>
+                          Designation
+                        </Text>
                       </View>
                     </View>
 
                     <View style={styles.instructionsItemsRow}>
                       <View style={styles.checkItemWrap}>
                         <CheckIcon size={12} color="#10B981" />
-                        <Text style={styles.instructionCheckItemText}>Mobile Number</Text>
+                        <Text style={styles.instructionCheckItemText}>
+                          Mobile Number
+                        </Text>
                       </View>
                       <View style={styles.checkItemWrap}>
                         <StarIcon size={12} color="#F59E0B" />
@@ -4656,8 +4330,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
-    borderWidth:1,
-    borderColor:"#25138dff"
+    borderWidth: 1,
+    borderColor: '#c396edff',
   },
   locationRow: {
     flexDirection: 'row',
@@ -4999,25 +4673,50 @@ const styles = StyleSheet.create({
   noEventModalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.72)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
   },
   noEventBottomCard: {
     backgroundColor: '#0B0717',
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
+    borderRadius: 26,
     borderWidth: 1,
     borderColor: 'rgba(192, 132, 252, 0.34)',
-    borderBottomWidth: 0,
-    paddingTop: 18,
-    paddingBottom: Platform.OS === 'ios' ? 32 : 20,
-    paddingHorizontal: 16,
+    paddingVertical: 22,
+    paddingHorizontal: 20,
     width: '100%',
+    maxWidth: 400,
     position: 'relative',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.48,
     shadowRadius: 22,
     elevation: 18,
+  },
+  noEventPopupContent: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  noEventPopupImage: {
+    width: 190,
+    height: 160,
+    marginBottom: 10,
+  },
+  noEventPopupTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontFamily: Fonts.family.bold,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  noEventPopupSubtitle: {
+    color: '#C4B5D9',
+    fontSize: 14,
+    fontFamily: Fonts.family.regular,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 18,
+    maxWidth: 300,
   },
   noEventContentRow: {
     flexDirection: 'row',
@@ -5189,7 +4888,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   summaryCard: {
-    minHeight: 121,
+    minHeight: 91,
     paddingVertical: 14,
   },
   summaryInput: {
@@ -6324,8 +6023,8 @@ const styles = StyleSheet.create({
   captureCardBig: {
     flex: 1,
     backgroundColor: '#0B0A1F',
-    borderWidth: 1.5,
-    borderColor: '#26243A',
+    borderWidth: 1,
+    borderColor: '#c396edff',
     borderRadius: 20,
     paddingVertical: 14,
     alignItems: 'center',

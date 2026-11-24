@@ -156,12 +156,12 @@ export const NewEventScreen = ({ navigation, route }) => {
               return {
                 uri,
                 url: att.url || rawUrl,
-                name: att.name || 'Category file',
+                name: att.name || 'Folder file',
                 size: att.size || 0,
                 type: att.type || (isImage ? 'image/jpeg' : 'application/octet-stream'),
                 isExisting: true,
                 isImage,
-                sourceEventName: event.name || 'Previous category',
+                sourceEventName: event.name || 'Previous Folder',
               };
             }),
           )
@@ -244,7 +244,7 @@ export const NewEventScreen = ({ navigation, route }) => {
   // Save Event
   const handleSaveEvent = async () => {
     if (!eventName.trim()) {
-      showGuestAlert('Required Field', 'Please enter a contact category name.');
+      showGuestAlert('Required Field', 'Please enter a contact Folder name.');
       return;
     }
     if (!venue.trim()) {
@@ -314,7 +314,7 @@ export const NewEventScreen = ({ navigation, route }) => {
 
           showGuestAlert(
             'Success 🎉',
-            `Contact category "${updated.name}" updated successfully!`,
+            `Contact Folder "${updated.name}" updated successfully!`,
             [
               {
                 text: 'OK',
@@ -323,7 +323,7 @@ export const NewEventScreen = ({ navigation, route }) => {
             ],
           );
         } else {
-          throw new Error(res.message || 'Failed to update contact category');
+          throw new Error(res.message || 'Failed to update contact Folder');
         }
       } else {
         const res = await eventService.createEvent(token, payload);
@@ -342,7 +342,7 @@ export const NewEventScreen = ({ navigation, route }) => {
 
           showGuestAlert(
             'Success 🎉',
-            `Contact category "${created.name}" created successfully!`,
+            `Contact Folder "${created.name}" created successfully!`,
             [
               {
                 text: 'OK',
@@ -351,22 +351,22 @@ export const NewEventScreen = ({ navigation, route }) => {
             ],
           );
         } else {
-          throw new Error(res.message || 'Failed to create contact category');
+          throw new Error(res.message || 'Failed to create contact Folder');
         }
       }
     } catch (err) {
       console.error(
-        isEdit ? 'Update category error:' : 'Create category error:',
+        isEdit ? 'Update Folder error:' : 'Create Folder error:',
         err,
       );
       const friendlyMessage = getFriendlyErrorMessage(
         err,
         isEdit
-          ? 'Unable to update category. Please check the details and try again.'
-          : 'Unable to save category. Please check the details and try again.',
+          ? 'Unable to update Folder. Please check the details and try again.'
+          : 'Unable to save Folder. Please check the details and try again.',
       );
       showGuestAlert(
-        isEdit ? 'Unable to Update Category' : 'Unable to Save Category',
+        isEdit ? 'Unable to Update Folder' : 'Unable to Save Folder',
         friendlyMessage,
       );
     } finally {
@@ -391,7 +391,7 @@ export const NewEventScreen = ({ navigation, route }) => {
           <BackIcon size={18} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isEdit ? 'Edit Contact Category' : 'Create Contact Category'}
+          {isEdit ? 'Edit Contact Folder' : 'Create Contact Folder'}
         </Text>
         <View style={styles.headerRightSpacer} />
       </View>
@@ -402,11 +402,11 @@ export const NewEventScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* 1. CONTACT CATEGORY NAME INPUT CARD */}
+        {/* 1. CONTACT Folder NAME INPUT CARD */}
         <View style={styles.inputCard}>
           {!eventName ? (
             <View style={styles.placeholderRow} pointerEvents="none">
-              <Text style={styles.placeholderText}>Contact Category Name</Text>
+              <Text style={styles.placeholderText}>Contact Folder Name</Text>
               <Text style={styles.requiredAsterisk}>*</Text>
             </View>
           ) : null}
@@ -467,7 +467,9 @@ export const NewEventScreen = ({ navigation, route }) => {
           <Text style={styles.sectionHeaderTitle}>WhatsApp Message</Text>
 
           {/* Box 1: Fixed Non-Editable Template */}
-          <View style={[styles.inputCard, styles.fixedTemplateCard]}>
+          <View style={[styles.inputCard, styles.fixedTemplateCard,{
+            minHeight:51
+          }]}>
             <Text style={styles.fixedTemplateText}>
               Hi {'{there name}'}! Great meeting you.
             </Text>
@@ -491,7 +493,7 @@ export const NewEventScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* 5. CATEGORY IMAGE OR DOCUMENT (OPTIONAL) */}
+        {/* 5. Folder IMAGE OR DOCUMENT (OPTIONAL) */}
         <View style={styles.sectionWrap}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionHeaderTitle}>Image or Document</Text>
@@ -560,7 +562,7 @@ export const NewEventScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
 
-        {/* 6. SAVE CONTACT CATEGORY BUTTON */}
+        {/* 6. SAVE CONTACT Folder BUTTON */}
         <TouchableOpacity
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSaveEvent}
@@ -572,7 +574,7 @@ export const NewEventScreen = ({ navigation, route }) => {
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
             <Text style={styles.saveButtonText}>
-              {isEdit ? 'Update Category' : 'Save Category'}
+              {isEdit ? 'Update Folder' : 'Save Folder'}
             </Text>
           )}
         </TouchableOpacity>
@@ -1019,7 +1021,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 24,
+    marginTop: 12,
     overflow: 'hidden',
     shadowColor: '#4013C7',
     shadowOffset: { width: 0, height: 4 },

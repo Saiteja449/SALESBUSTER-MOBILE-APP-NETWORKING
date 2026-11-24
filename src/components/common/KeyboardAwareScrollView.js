@@ -52,7 +52,12 @@ export const KeyboardAwareScrollView = React.forwardRef(
             flatContent,
             {
               flexGrow: 1,
-              paddingBottom: basePaddingBottom + (keyboardHeight > 0 ? keyboardHeight + 40 : 0),
+              // Keep enough scroll range to bring fields above the keyboard.
+              // adjustResize reduces the viewport; this padding lets the scroll
+              // view move content that would otherwise remain covered.
+              paddingBottom:
+                basePaddingBottom +
+                (keyboardHeight > 0 ? keyboardHeight + 40 : 0),
             },
           ]}
           keyboardShouldPersistTaps="handled"

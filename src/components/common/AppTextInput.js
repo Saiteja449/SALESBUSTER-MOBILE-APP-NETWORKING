@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useMemo, useRef } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { TextInput as RNTextInput, StyleSheet } from 'react-native';
 import { Fonts } from '../../styles/Fonts';
 import { buildFontStyle } from './AppText';
@@ -9,7 +9,12 @@ const AppTextInput = React.memo(
     const localRef = useRef(null);
     const inputRef = ref || localRef;
     const layoutYRef = useRef(0);
+    const focusScrollTimerRef = useRef(null);
     const kbContext = useContext(KeyboardScrollContext);
+
+    useEffect(() => () => {
+      if (focusScrollTimerRef.current) clearTimeout(focusScrollTimerRef.current);
+    }, []);
 
     const finalStyle = useMemo(
       () => buildFontStyle(styles.defaultInput, style),
@@ -27,27 +32,25 @@ const AppTextInput = React.memo(
     const handleFocus = useCallback(
       (e) => {
         if (kbContext?.scrollToInput) {
-          if (inputRef.current && kbContext.scrollRef?.current) {
-            try {
-              inputRef.current.measureLayout(
-                kbContext.scrollRef.current,
-                (_x, y) => {
-                  kbContext.scrollToInput(y);
-                },
-                () => {
-                  if (layoutYRef.current > 0) {
-                    kbContext.scrollToInput(layoutYRef.current);
+          if (focusScrollTimerRef.current) clearTimeout(focusScrollTimerRef.current);
+          // Let the keyboard and Android adjustResize update the viewport first.
+          focusScrollTimerRef.current = setTimeout(() => {
+            if (inputRef.current && kbContext.scrollRef?.current) {
+              try {
+                inputRef.current.measureLayout(
+                  kbContext.scrollRef.current,
+                  (_x, y) => kbContext.scrollToInput(y),
+                  () => {
+                    if (layoutYRef.current > 0) kbContext.scrollToInput(layoutYRef.current);
                   }
-                }
-              );
-            } catch (_err) {
-              if (layoutYRef.current > 0) {
-                kbContext.scrollToInput(layoutYRef.current);
+                );
+              } catch (_err) {
+                if (layoutYRef.current > 0) kbContext.scrollToInput(layoutYRef.current);
               }
+            } else if (layoutYRef.current > 0) {
+              kbContext.scrollToInput(layoutYRef.current);
             }
-          } else if (layoutYRef.current > 0) {
-            kbContext.scrollToInput(layoutYRef.current);
-          }
+          }, 300);
         }
         if (onFocus) onFocus(e);
       },

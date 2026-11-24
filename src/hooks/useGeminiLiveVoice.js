@@ -141,6 +141,9 @@ export function useGeminiLiveVoice(options = {}) {
       'onAudioChunk',
       base64Chunk => {
         if (!base64Chunk || isPausedRef.current) return;
+        // Recording-only capture writes audio to the native file and never streams
+        // microphone chunks or transcript data to the live backend.
+        if (optionsRef.current?.recordingOnly) return;
         const isEvent = Boolean(optionsRef.current?.isEventCapture);
         const audioEvent = isEvent
           ? 'conversation:audio_chunk'
@@ -217,7 +220,7 @@ export function useGeminiLiveVoice(options = {}) {
       sessionReadyRef.current = null;
       socketListenersCleanupRef.current?.();
       socketListenersCleanupRef.current = null;
-      if (socket && socket.connected) {
+      if (socket && socket.connected && !optionsRef.current?.recordingOnly) {
         if (optionsRef.current?.isEventCapture) {
           socket.emit('conversation:stop', {
             sessionId: currentSessionIdRef.current,
@@ -839,8 +842,31 @@ export function useGeminiLiveVoice(options = {}) {
           }
         }
 
-        // Ensure socket connection is active and authenticated as the current user
         const currentOpts = optionsRef.current || {};
+        if (currentOpts.recordingOnly) {
+          if (!GeminiVoiceAudioModule) {
+            throw new Error('Local audio recording is unavailable on this device.');
+          }
+          if (typeof GeminiVoiceAudioModule.setCaptureToFile === 'function') {
+            GeminiVoiceAudioModule.setCaptureToFile(true);
+          }
+          if (typeof GeminiVoiceAudioModule.setUseAudioEffects === 'function') {
+            try {
+              GeminiVoiceAudioModule.setUseAudioEffects(true);
+            } catch (fxErr) {
+              console.warn('[Live Voice] Failed to configure audio effects:', fxErr);
+            }
+          }
+          if (typeof GeminiVoiceAudioModule.setSpeakerphone === 'function') {
+            await GeminiVoiceAudioModule.setSpeakerphone(isSpeakerOn).catch(() => {});
+          }
+          await GeminiVoiceAudioModule.startRecording();
+          setIsConnected(true);
+          setStatus('listening');
+          return;
+        }
+
+        // Ensure socket connection is active and authenticated as the current user
         const activeToken =
           currentOpts.token ||
           currentOpts.user?.token ||

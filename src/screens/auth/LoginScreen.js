@@ -298,6 +298,7 @@ export default function LoginScreen() {
           },
         ]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
         showsVerticalScrollIndicator={false}
       >
         <AuthFlowProgress

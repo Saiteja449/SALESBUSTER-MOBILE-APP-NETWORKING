@@ -1113,7 +1113,13 @@ export function normalizeExtractedContact(rawExtraction = {}, context = {}) {
     const nameEvidenceMatches = !hasEvidenceField || Boolean(
       normalizedEvidence && normalizedEvidence.includes(normalizedName) && hasExplicitIntroCue,
     );
-    if (nameEvidenceMatches && isStrictPersonNameCandidate(val, context)) {
+    const isRecordedAudioName = Boolean(context.trustRecordedAudioName);
+    const isPlaceholderName = /^(?:null|undefined|none|unknown|valued customer|customer|guest|n\/a)$/i.test(val);
+    if (
+      nameEvidenceMatches &&
+      !isPlaceholderName &&
+      (isRecordedAudioName || isStrictPersonNameCandidate(val, context))
+    ) {
       normalized.name = {
         value: val,
         confidence: nameCandidate.confidence || 0.95,
@@ -1193,7 +1199,11 @@ export function normalizeExtractedContact(rawExtraction = {}, context = {}) {
   }
 
   // Cross-field Disambiguation: A person's name cannot match or be contained in companyName
-  if (normalized.name.value && normalized.companyName.value) {
+  if (
+    !context.trustRecordedAudioName &&
+    normalized.name.value &&
+    normalized.companyName.value
+  ) {
     const nLower = normalized.name.value.toLowerCase();
     const cLower = normalized.companyName.value.toLowerCase();
     if (nLower === cLower || cLower.includes(nLower) || nLower.includes(cLower) || isLikelyCompanyName(normalized.name.value)) {
